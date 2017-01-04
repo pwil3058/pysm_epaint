@@ -24,6 +24,7 @@ import math
 import array
 import fractions
 
+from ..bab.decorators import classproperty
 from ..bab import mathx
 
 if __name__ == "__main__":
@@ -93,17 +94,6 @@ class RGBNG:
     def converted_to(self, rgbt):
         # TODO: use ConversionMixin here
         return rgbt(*[rgbt.ROUND((chnl * rgbt.ONE) / self.ONE) for chnl in self])
-    @property
-    def _class_name(self):
-        return repr(self.__class__)[8:-2]
-    @property
-    def _format_str(self):
-        s = self._class_name.split(".")[-1] + "("
-        if self.BITS_PER_CHANNEL is None:
-            s += "red={0.red:f}, green={0.green:f}, blue={0.blue:f})"
-        else:
-            s += "red=0x{{0.red:0{0}X}}, green=0x{{0.green:0{0}X}}, blue=0x{{0.blue:0{0}X}})".format(self.BITS_PER_CHANNEL / 4)
-        return s
     @staticmethod
     def indices_value_order(rgb):
         """
@@ -218,7 +208,44 @@ class RGBNG:
         else:
             return rgb
 
-class RGB8(RGB_TUPLE("RGB8"), RGBNG, BPC8):
+class ColourConstantsMixin:
+    """Constants for the three primary colours, three secondary
+    colours, black and white for the derived RGB type
+    """
+    @classproperty
+    def BLACK(cls):
+        return cls(cls.ZERO, cls.ZERO, cls.ZERO)
+    @classproperty
+    def RED(cls):
+        return cls(cls.ONE, cls.ZERO, cls.ZERO)
+    @classproperty
+    def GREEN(cls):
+        return cls(cls.ZERO, cls.ONE, cls.ZERO)
+    @classproperty
+    def BLUE(cls):
+        return cls(cls.ZERO, cls.ZERO, cls.ONE)
+    @classproperty
+    def YELLOW(cls):
+        return cls(cls.ONE, cls.ONE, cls.ZERO)
+    @classproperty
+    def CYAN(cls):
+        return cls(cls.ZERO, cls.ONE, cls.ONE)
+    @classproperty
+    def MAGENTA(cls):
+        return cls(cls.ONE, cls.ZERO, cls.ONE)
+    @classproperty
+    def WHITE(cls):
+        return cls(cls.ONE, cls.ONE, cls.ONE)
+    @classproperty
+    def _format_str(cls):
+        s = cls.__name__ + "("
+        if cls.BITS_PER_CHANNEL is None:
+            s += "red={0.red:f}, green={0.green:f}, blue={0.blue:f})"
+        else:
+            s += "red=0x{{0.red:0{0}X}}, green=0x{{0.green:0{0}X}}, blue=0x{{0.blue:0{0}X}})".format(cls.BITS_PER_CHANNEL / 4)
+        return s
+
+class RGB8(RGB_TUPLE("RGB8"), RGBNG, BPC8, ColourConstantsMixin):
     def __str__(self):
         return self._format_str.format(self)
     def __repr__(self):
@@ -226,7 +253,7 @@ class RGB8(RGB_TUPLE("RGB8"), RGBNG, BPC8):
     def get_value(self):
         return fractions.Fraction(sum(self), self.THREE)
 
-class RGB16(RGB_TUPLE("RGB16"), RGBNG, BPC16):
+class RGB16(RGB_TUPLE("RGB16"), RGBNG, BPC16, ColourConstantsMixin):
     def __str__(self):
         return self._format_str.format(self)
     def __repr__(self):
@@ -234,7 +261,7 @@ class RGB16(RGB_TUPLE("RGB16"), RGBNG, BPC16):
     def get_value(self):
         return fractions.Fraction(sum(self), self.THREE)
 
-class RGBPN(RGB_TUPLE("RGBPN"), RGBNG, PROPN_CHANNELS):
+class RGBPN(RGB_TUPLE("RGBPN"), RGBNG, PROPN_CHANNELS, ColourConstantsMixin):
     def __str__(self):
         return self._format_str.format(self)
     def __repr__(self):
