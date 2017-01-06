@@ -24,6 +24,8 @@ import math
 import array
 import fractions
 
+from gi.repository import Gdk
+
 from ..bab.decorators import classproperty
 from ..bab import mathx
 
@@ -33,14 +35,6 @@ if __name__ == "__main__":
 
 def RGB_TUPLE(name):
     return collections.namedtuple(name, ["red", "green", "blue"])
-
-
-def best_foreground(rgb, threshold=0.5, one=1.0):
-    wval = (rgb[0] * 0.299 + rgb[1] * 0.587 + rgb[2] * 0.114)
-    if wval > one * threshold:
-        return (0, 0, 0)
-    else:
-        return (one, one, one)
 
 
 class ConversionMixin:
@@ -94,6 +88,14 @@ class RGBNG:
     def converted_to(self, rgbt):
         # TODO: use ConversionMixin here
         return rgbt(*[rgbt.ROUND((chnl * rgbt.ONE) / self.ONE) for chnl in self])
+    def best_foreground_is_black(self, threshold=0.5):
+        return (self.red * 0.299 + self.green * 0.587 + self.blue * 0.114) > self.ONE * threshold
+    def best_foreground(self, threshold=0.5):
+        return self.BLACK if self.best_foreground_is_black(threshold) else self.WHITE
+    def best_foreground_gdk_color(self, threshold=0.5):
+        return Gdk.Color(0, 0, 0) if self.best_foreground_is_black(threshold) else Gdk.Color(BPC16.ONE, BPC16.ONE, BPC16.ONE)
+    def best_foreground_gdk_rgba(self, threshold=0.5):
+        return Gdk.RGBA(0.0, 0.0, 0.0, 1.0) if self.best_foreground_is_black(threshold) else Gdk.RGBA(1.0, 1.0, 1.0)
     @staticmethod
     def indices_value_order(rgb):
         """
@@ -252,6 +254,10 @@ class RGB8(RGB_TUPLE("RGB8"), RGBNG, BPC8, ColourConstantsMixin):
         return str(self)
     def get_value(self):
         return fractions.Fraction(sum(self), self.THREE)
+    def to_gdk_color(self):
+        return Gdk.Color.from_floats(*self.converted_to(RGBPN))
+    def to_gdk_rgba(self, alpha=1.0):
+        return self.converted_to(RGPN).to_gtk_rba(alpha=alpha)
 
 class RGB16(RGB_TUPLE("RGB16"), RGBNG, BPC16, ColourConstantsMixin):
     def __str__(self):
@@ -260,6 +266,10 @@ class RGB16(RGB_TUPLE("RGB16"), RGBNG, BPC16, ColourConstantsMixin):
         return str(self)
     def get_value(self):
         return fractions.Fraction(sum(self), self.THREE)
+    def to_gdk_color(self):
+        return Gdk.Color(*self)
+    def to_gdk_rgba(self, alpha=1.0):
+        return self.converted_to(RGPN).to_gtk_rba(alpha=alpha)
 
 class RGBPN(RGB_TUPLE("RGBPN"), RGBNG, PROPN_CHANNELS, ColourConstantsMixin):
     def __str__(self):
@@ -268,6 +278,10 @@ class RGBPN(RGB_TUPLE("RGBPN"), RGBNG, PROPN_CHANNELS, ColourConstantsMixin):
         return str(self)
     def get_value(self):
         return sum(self) / self.THREE
+    def to_gdk_color(self):
+        return Gdk.Color.from_floats(*self)
+    def to_gdk_rgba(self, alpha=1.0):
+        return Gdk.RGBA(red=self.red, green=self.green, blue=self.blue, alpha=alpha)
 
 class HueNG(collections.namedtuple("Hue", ["io", "other", "angle", "chroma_correction"])):
     @classmethod
@@ -329,6 +343,14 @@ class HueNG(collections.namedtuple("Hue", ["io", "other", "angle", "chroma_corre
         return result
     def rgb_converted_to(self, rgbt):
         return rgbt(*[self.convert_chnl_value(chnl, rgbt) for chnl in self.rgb])
+    def to_gdk_color(self):
+        return Gdk.Color.from_floats(*[self.convert_chnl_value(chnl, RGBPN) for chnl in self.rgb])
+    def to_gdk_rgba(self, alpha=1.0):
+        return Gdk.RGBA(*([self.convert_chnl_value(chnl, RGBPN) for chnl in self.rgb] + [alpha]))
+    def best_foreground_gdk_color(self, threshold=0.5):
+        return self.rgb_converted_to(RGBPN).best_foreground_gdk_color(threshold)
+    def best_foreground_gdk_rgba(self, threshold=0.5):
+        return self.rgb_converted_to(RGBPN).best_foreground_gdk_rgba(threshold)
     def max_chroma_value(self):
         mct = self.ONE + self.other
         return mct / self.THREE if self.BITS_PER_CHANNEL is None else fractions.Fraction(mct, self.THREE)
