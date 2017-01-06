@@ -1,17 +1,17 @@
-### Copyright: Peter Williams (2012) - All rights reserved
-###
-### This program is free software; you can redistribute it and/or modify
-### it under the terms of the GNU General Public License as published by
-### the Free Software Foundation; version 2 of the License only.
-###
-### This program is distributed in the hope that it will be useful,
-### but WITHOUT ANY WARRANTY; without even the implied warranty of
-### MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-### GNU General Public License for more details.
-###
-### You should have received a copy of the GNU General Public License
-### along with this program; if not, write to the Free Software
-### Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+# Copyright: Peter Williams (2012) - All rights reserved
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; version 2 of the License only.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
 """
 Virtual paint library
@@ -201,10 +201,13 @@ class Transparency(MappedFloat):
             RATING("SO", _("Semi-opaque"), 2.0),
             RATING("ST", _("Semi-transparent"), 3.0),
             RATING("T", _("Transparent"), 4.0),
+            RATING("C", _("Clear"), 5.0),
         )
 
     def __repr__(self):
         return "Transparency({0})".format(self.val)
+    def to_alpha(self):
+        return (5.0 - self.val) / 4.0
 
 class Colour(object):
     def __init__(self, rgb, transparency=None, finish=None):
@@ -231,7 +234,9 @@ class Colour(object):
             yield self.hcv.rgb[i]
     def to_gdk_color(self):
         return self.hcv.rgb.to_gdk_color()
-    def to_gdk_rgba(self, alpha=1.0):
+    def to_gdk_rgba(self, alpha=None):
+        if alpha is None:
+            alpha = self.transparency.to_alpha()
         return self.hcv.rgb.to_gdk_rgba(alpha=alpha)
     def best_foreground(self, threshold=0.5):
         return self.hcv.rgb.best_foreground(threshold)
