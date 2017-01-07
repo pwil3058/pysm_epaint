@@ -27,20 +27,20 @@ from gi.repository import Gtk
 from gi.repository import Gdk
 from gi.repository import GObject
 
-from .bab import mathx
-from .bab import nmd_tuples
-from .bab import options
+from ..bab import mathx
+from ..bab import nmd_tuples
+from ..bab import options
 
-from .epaint import paint
-from .epaint import rgbh
+from ..gtx import actions
+from ..gtx import buttons
+from ..gtx import coloured
+from ..gtx import dialogue
+from ..gtx import gutils
+from ..gtx import tlview
+from ..gtx import recollect
 
-from .gtx import actions
-from .gtx import buttons
-from .gtx import coloured
-from .gtx import dialogue
-from .gtx import gutils
-from .gtx import tlview
-from .gtx import recollect
+from . import paint
+from . import rgbh
 
 options.define('colour_wheel', 'red_to_yellow_clockwise', options.Defn(bool, False, _('Direction around colour wheel from red to yellow.')))
 
