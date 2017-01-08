@@ -13,9 +13,8 @@
 ### along with this program; if not, write to the Free Software
 ### Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-'''
-Widgets the work with paint colours
-'''
+"""Widgets the work with paint colours
+"""
 
 import collections
 import math
@@ -42,9 +41,9 @@ from ..gtx import recollect
 from . import paint
 from . import rgbh
 
-options.define('colour_wheel', 'red_to_yellow_clockwise', options.Defn(bool, False, _('Direction around colour wheel from red to yellow.')))
+options.define("colour_wheel", "red_to_yellow_clockwise", options.Defn(bool, False, _("Direction around colour wheel from red to yellow.")))
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     _ = lambda x: x
     import doctest
 
@@ -60,7 +59,7 @@ class MappedFloatChoice(Gtk.ComboBoxText):
     MFDC = None
     def __init__(self):
         Gtk.ComboBoxText.__init__(self)
-        for choice in ('{0}\t- {1}'.format(item[0], item[1]) for item in self.MFDC.MAP):
+        for choice in ("{0}\t- {1}".format(item[0], item[1]) for item in self.MFDC.MAP):
             self.append_text(choice)
     def get_selection(self):
         index = self.get_active()
@@ -99,17 +98,16 @@ class ColouredRectangle(Gtk.DrawingArea):
         return True
 
 class ColourSampleArea(Gtk.DrawingArea, actions.CAGandUIManager):
+    """A coloured drawing area onto which samples can be dropped.
     """
-    A coloured drawing area onto which samples can be dropped.
-    """
-    UI_DESCR = '''
+    UI_DESCR = """
     <ui>
-        <popup name='colour_sample_popup'>
-            <menuitem action='paste_sample_image'/>
-            <menuitem action='remove_sample_images'/>
+        <popup name="colour_sample_popup">
+            <menuitem action="paste_sample_image"/>
+            <menuitem action="remove_sample_images"/>
         </popup>
     </ui>
-    '''
+    """
     AC_SAMPLES_PASTED, AC_MASK = actions.ActionCondns.new_flags_and_mask(1)
     def __init__(self, single_sample=False, default_bg=None):
         Gtk.DrawingArea.__init__(self)
@@ -122,19 +120,19 @@ class ColourSampleArea(Gtk.DrawingArea, actions.CAGandUIManager):
 
         self.add_events(Gdk.EventMask.POINTER_MOTION_MASK|Gdk.EventMask.BUTTON_PRESS_MASK)
         self.connect("draw", self.expose_cb)
-        self.connect('motion_notify_event', self._motion_notify_cb)
+        self.connect("motion_notify_event", self._motion_notify_cb)
 
-        actions.CAGandUIManager.__init__(self, popup='/colour_sample_popup')
+        actions.CAGandUIManager.__init__(self, popup="/colour_sample_popup")
     def populate_action_groups(self):
         self.action_groups[actions.AC_DONT_CARE].add_actions(
             [
-                ('paste_sample_image', Gtk.STOCK_PASTE, None, None,
-                 _('Paste an image from clipboard at this position.'), self._paste_fm_clipboard_cb),
+                ("paste_sample_image", Gtk.STOCK_PASTE, None, None,
+                 _("Paste an image from clipboard at this position."), self._paste_fm_clipboard_cb),
             ])
         self.action_groups[self.AC_SAMPLES_PASTED].add_actions(
             [
-                ('remove_sample_images', Gtk.STOCK_REMOVE, None, None,
-                 _('Remove all sample images from from the sample area.'), self._remove_sample_images_cb),
+                ("remove_sample_images", Gtk.STOCK_REMOVE, None, None,
+                 _("Remove all sample images from from the sample area."), self._remove_sample_images_cb),
             ])
     def get_masked_condns(self):
         if len(self._sample_images) > 0:
@@ -148,13 +146,11 @@ class ColourSampleArea(Gtk.DrawingArea, actions.CAGandUIManager):
             return True
         return False
     def _remove_sample_images_cb(self, action):
-        """
-        Remove all samples.
+        """Remove all samples.
         """
         self.erase_samples()
     def _paste_fm_clipboard_cb(self, _action):
-        """
-        Paste from the clipboard
+        """Paste from the clipboard
         """
         cbd = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
         # WORKAROUND: clipboard bug on Windows
@@ -166,7 +162,7 @@ class ColourSampleArea(Gtk.DrawingArea, actions.CAGandUIManager):
                 parent=self.get_toplevel(),
                 flags=Gtk.DialogFlags.MODAL|Gtk.DialogFlags.DESTROY_WITH_PARENT,
                 buttons=Gtk.ButtonsType.OK,
-                text=_('No image data on clipboard.')
+                text=_("No image data on clipboard.")
             )
             dlg.run()
             dlg.destroy()
@@ -177,29 +173,25 @@ class ColourSampleArea(Gtk.DrawingArea, actions.CAGandUIManager):
                 self._sample_images.append((int(posn[0]), int(posn[1]), img))
             self.queue_draw()
             self.action_groups.update_condns(actions.MaskedCondns(self.AC_SAMPLES_PASTED, self.AC_MASK))
-            self.emit('samples-changed', len(self._sample_images))
+            self.emit("samples-changed", len(self._sample_images))
     def erase_samples(self):
-        """
-        Erase all samples from the drawing area
+        """Erase all samples from the drawing area
         """
         self._sample_images = []
         self.queue_draw()
         self.action_groups.update_condns(actions.MaskedCondns(0, self.AC_MASK))
-        self.emit('samples-changed', len(self._sample_images))
+        self.emit("samples-changed", len(self._sample_images))
     def get_samples(self):
-        """
-        Return a list containing all samples from the drawing area
+        """Return a list containing all samples from the drawing area
         """
         return [sample[2] for sample in self._sample_images]
     def set_bg_colour(self, colour):
-        """
-        Set the drawing area to the specified colour
+        """Set the drawing area to the specified colour
         """
         self.bg_colour = get_colour(colour)
         self.queue_draw()
     def expose_cb(self, _widget, cairo_ctxt):
-        """
-        Repaint the drawing area
+        """Repaint the drawing area
         """
         cairo_ctxt.set_source_rgb(*self.bg_colour.converted_to(rgbh.RGBPN))
         cairo_ctxt.paint()
@@ -208,11 +200,10 @@ class ColourSampleArea(Gtk.DrawingArea, actions.CAGandUIManager):
             cairo_ctxt.set_source_surface(sfc, sample[0], sample[1])
             cairo_ctxt.paint()
         return True
-GObject.signal_new('samples-changed', ColourSampleArea, GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_INT,))
+GObject.signal_new("samples-changed", ColourSampleArea, GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_INT,))
 
 class ColourMatchArea(Gtk.DrawingArea):
-    """
-    A coloured drawing area for comparing two colours.
+    """A coloured drawing area for comparing two colours.
     """
     def __init__(self, target_colour=None, default_bg=None):
         Gtk.DrawingArea.__init__(self)
@@ -224,20 +215,17 @@ class ColourMatchArea(Gtk.DrawingArea):
         self.add_events(Gdk.EventMask.POINTER_MOTION_MASK|Gdk.EventMask.BUTTON_PRESS_MASK)
         self.connect("draw", self.expose_cb)
     def set_bg_colour(self, colour):
-        """
-        Set the drawing area to the specified colour
+        """Set the drawing area to the specified colour
         """
         self.bg_colour = get_colour(colour)
         self.queue_draw()
     def set_target_colour(self, colour):
-        """
-        Set the drawing area to the specified colour
+        """Set the drawing area to the specified colour
         """
         self.target_colour = get_colour(colour)
         self.queue_draw()
     def expose_cb(self, _widget, cairo_ctxt):
-        """
-        Repaint the drawing area
+        """Repaint the drawing area
         """
         cairo_ctxt.set_source_rgb(*self.bg_colour.converted_to(rgbh.RGBPN))
         cairo_ctxt.paint()
@@ -361,7 +349,7 @@ class GenericAttrDisplay(Gtk.DrawingArea):
         self.queue_draw()
 
 class HueDisplay(GenericAttrDisplay):
-    LABEL = _('Hue')
+    LABEL = _("Hue")
 
     def expose_cb(self, widget, cairo_ctxt):
         if self.colour is None and self.target_val is None:
@@ -379,7 +367,7 @@ class HueDisplay(GenericAttrDisplay):
         else:
             centre_hue = self.target_colour.hue
         #
-        backwards = options.get('colour_wheel', 'red_to_yellow_clockwise')
+        backwards = options.get("colour_wheel", "red_to_yellow_clockwise")
         width = widget.get_allocated_width()
         height = widget.get_allocated_height()
         spread = 2 * math.pi
@@ -409,7 +397,7 @@ class HueDisplay(GenericAttrDisplay):
             self.fg_colour = colour.hue_rgb.best_foreground()
             if self.target_val is None:
                 self.indicator_val = 0.5
-            elif options.get('colour_wheel', 'red_to_yellow_clockwise'):
+            elif options.get("colour_wheel", "red_to_yellow_clockwise"):
                 self.indicator_val = 0.5 + 0.5 * (colour.hue - self.target_colour.hue) / math.pi
             else:
                 self.indicator_val = 0.5 - 0.5 * (colour.hue - self.target_colour.hue) / math.pi
@@ -423,13 +411,13 @@ class HueDisplay(GenericAttrDisplay):
             self.target_val = 0.5
             if self.indicator_val is not None:
                 offset = 0.5 * (self.colour.hue - colour.hue) / math.pi
-                if options.get('colour_wheel', 'red_to_yellow_clockwise'):
+                if options.get("colour_wheel", "red_to_yellow_clockwise"):
                     self.indicator_val = 0.5 + offset
                 else:
                     self.indicator_val = 0.5 - offset
 
 class ValueDisplay(GenericAttrDisplay):
-    LABEL = _('Value')
+    LABEL = _("Value")
 
     def __init__(self, colour=None, target_colour=None, size=(100, 15)):
         self.start_colour = paint.BLACK
@@ -453,8 +441,7 @@ class ValueDisplay(GenericAttrDisplay):
         self.draw_indicators(cairo_ctxt)
         self.draw_label(cairo_ctxt)
     def _set_colour(self, colour):
-        """
-        Set values that only change when the colour changes
+        """Set values that only change when the colour changes
         """
         if colour is None:
             self.indicator_val = None
@@ -462,8 +449,7 @@ class ValueDisplay(GenericAttrDisplay):
             self.fg_colour = colour.best_foreground()
             self.indicator_val = colour.value
     def _set_target_colour(self, colour):
-        """
-        Set values that only change when the target colour changes
+        """Set values that only change when the target colour changes
         """
         if colour is None:
             self.target_val = None
@@ -472,11 +458,10 @@ class ValueDisplay(GenericAttrDisplay):
             self.target_val = colour.value
 
 class ChromaDisplay(ValueDisplay):
-    LABEL = _('Chroma')
+    LABEL = _("Chroma")
 
     def _set_colour(self, colour):
-        """
-        Set values that only change when the colour changes
+        """Set values that only change when the colour changes
         """
         if colour is None:
             self.indicator_val = None
@@ -490,8 +475,7 @@ class ChromaDisplay(ValueDisplay):
             self.fg_colour = self.start_colour.best_foreground()
             self.indicator_val = colour.chroma
     def _set_target_colour(self, colour):
-        """
-        Set values that only change when the target colour changes
+        """Set values that only change when the target colour changes
         """
         if colour is None:
             self.target_val = None
@@ -529,12 +513,12 @@ class HCVDisplay(Gtk.VBox):
         self.value.set_target_colour(new_target_colour)
 
 class HueWheelNotebook(Gtk.Notebook):
-    def __init__(self, popup='/colour_wheel_I_popup'):
+    def __init__(self, popup="/colour_wheel_I_popup"):
         Gtk.Notebook.__init__(self)
         self.hue_chroma_wheel = HueChromaWheel(nrings=5, popup=popup)
         self.hue_value_wheel = HueValueWheel(popup=popup)
-        self.append_page(self.hue_value_wheel, Gtk.Label(label=_('Hue/Value Wheel')))
-        self.append_page(self.hue_chroma_wheel, Gtk.Label(label=_('Hue/Chroma Wheel')))
+        self.append_page(self.hue_value_wheel, Gtk.Label(label=_("Hue/Value Wheel")))
+        self.append_page(self.hue_chroma_wheel, Gtk.Label(label=_("Hue/Chroma Wheel")))
     def set_wheels_colour_info_acb(self, callback):
         self.hue_chroma_wheel.set_colour_info_acb(callback)
         self.hue_value_wheel.set_colour_info_acb(callback)
@@ -561,19 +545,19 @@ class HueWheelNotebook(Gtk.Notebook):
         self.hue_value_wheel.unset_crosshair()
 
 class ColourWheel(Gtk.DrawingArea, actions.CAGandUIManager):
-    UI_DESCR = '''
+    UI_DESCR = """
         <ui>
-            <popup name='colour_wheel_I_popup'>
-                <menuitem action='colour_info'/>
+            <popup name="colour_wheel_I_popup">
+                <menuitem action="colour_info"/>
             </popup>
-            <popup name='colour_wheel_AI_popup'>
-                <menuitem action='add_colour'/>
-                <menuitem action='colour_info'/>
+            <popup name="colour_wheel_AI_popup">
+                <menuitem action="add_colour"/>
+                <menuitem action="colour_info"/>
             </popup>
         </ui>
-        '''
+        """
     AC_HAVE_POPUP_COLOUR, _DUMMY = actions.ActionCondns.new_flags_and_mask(1)
-    def __init__(self, nrings=9, popup='/colour_wheel_I_popup'):
+    def __init__(self, nrings=9, popup="/colour_wheel_I_popup"):
         Gtk.DrawingArea.__init__(self)
         actions.CAGandUIManager.__init__(self, popup=popup)
         self.__popup_colour = None
@@ -594,14 +578,14 @@ class ColourWheel(Gtk.DrawingArea, actions.CAGandUIManager):
         self.nrings = nrings
         self.connect("draw", self.expose_cb)
         self.set_has_tooltip(True)
-        self.connect('query-tooltip', self.query_tooltip_cb)
+        self.connect("query-tooltip", self.query_tooltip_cb)
         self.add_events(Gdk.EventMask.SCROLL_MASK|Gdk.EventMask.BUTTON_PRESS_MASK|Gdk.EventMask.BUTTON_RELEASE_MASK)
-        self.connect('scroll-event', self.scroll_event_cb)
-        self.__press_cb_id = self.connect('button_press_event', self._button_press_cb)
+        self.connect("scroll-event", self.scroll_event_cb)
+        self.__press_cb_id = self.connect("button_press_event", self._button_press_cb)
         self.__cb_ids = []
-        self.__cb_ids.append(self.connect('button_release_event', self._button_release_cb))
-        self.__cb_ids.append(self.connect('motion_notify_event', self._motion_notify_cb))
-        self.__cb_ids.append(self.connect('leave_notify_event', self._leave_notify_cb))
+        self.__cb_ids.append(self.connect("button_release_event", self._button_release_cb))
+        self.__cb_ids.append(self.connect("motion_notify_event", self._motion_notify_cb))
+        self.__cb_ids.append(self.connect("leave_notify_event", self._leave_notify_cb))
         for cb_id in self.__cb_ids:
             self.handler_block(cb_id)
         self.show()
@@ -610,14 +594,14 @@ class ColourWheel(Gtk.DrawingArea, actions.CAGandUIManager):
         return self.__popup_colour
     def populate_action_groups(self):
         self.action_groups[self.AC_HAVE_POPUP_COLOUR].add_actions([
-            ('colour_info', Gtk.STOCK_INFO, None, None,
-             _('Detailed information for this colour.'),
+            ("colour_info", Gtk.STOCK_INFO, None, None,
+             _("Detailed information for this colour."),
             ),
-            ('add_colour', Gtk.STOCK_ADD, None, None,
-             _('Add this colour to the mixer.'),
+            ("add_colour", Gtk.STOCK_ADD, None, None,
+             _("Add this colour to the mixer."),
             ),
         ])
-        self.__ci_acbid = self.action_groups.connect_activate('colour_info', self._show_colour_details_acb)
+        self.__ci_acbid = self.action_groups.connect_activate("colour_info", self._show_colour_details_acb)
         self.__ac_acbid = None
     def _show_colour_details_acb(self, _action):
         PaintColourInformationDialogue(self.__popup_colour).show()
@@ -630,14 +614,14 @@ class ColourWheel(Gtk.DrawingArea, actions.CAGandUIManager):
             self.__popup_colour = None
             self.action_groups.update_condns(actions.MaskedCondns(0, self.AC_HAVE_POPUP_COLOUR))
     def set_colour_info_acb(self, callback):
-        self.action_groups.disconnect_action('colour_info', self.__ci_acbid)
-        self.__ci_acbid = self.action_groups.connect_activate('colour_info', callback, self)
+        self.action_groups.disconnect_action("colour_info", self.__ci_acbid)
+        self.__ci_acbid = self.action_groups.connect_activate("colour_info", callback, self)
     def set_add_colour_acb(self, callback):
         if self.__ac_acbid is not None:
-            self.action_groups.disconnect_action('add_colour', self.__ac_acbid)
-        self.__ac_acbid = self.action_groups.connect_activate('add_colour', callback, self)
+            self.action_groups.disconnect_action("add_colour", self.__ac_acbid)
+        self.__ac_acbid = self.action_groups.connect_activate("add_colour", callback, self)
     def polar_to_cartesian(self, radius, angle):
-        if options.get('colour_wheel', 'red_to_yellow_clockwise'):
+        if options.get("colour_wheel", "red_to_yellow_clockwise"):
             x = -radius * math.cos(angle)
         else:
             x = radius * math.cos(angle)
@@ -858,7 +842,7 @@ class HueValueWheel(ColourWheel):
             self.radius = self.parent.one * self.colour.value
 
 class ColourListStore(tlview.NamedListStore):
-    ROW = collections.namedtuple('ROW', ['colour'])
+    ROW = collections.namedtuple("ROW", ["colour"])
     TYPES = ROW(colour=object)
     def append_colour(self, colour):
         self.append(self.ROW(colour))
@@ -867,7 +851,7 @@ class ColourListStore(tlview.NamedListStore):
         if model_iter is None:
             raise LookupError()
         # return the iter in case the client is interested
-        self.emit('colour-removed', colour)
+        self.emit("colour-removed", colour)
         return self.remove(model_iter)
     def remove_colours(self, colours):
         for colour in colours:
@@ -875,33 +859,32 @@ class ColourListStore(tlview.NamedListStore):
     def get_colours(self):
         return [row.colour for row in self.named()]
     def get_colour_with_name(self, colour_name):
-        """
-        Return the colour with the specified name or None if not present
+        """Return the colour with the specified name or None if not present
         """
         for row in self.named():
             if row.colour.name == colour_name:
                 return row.colour
         return None
-GObject.signal_new('colour-removed', ColourListStore, GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_PYOBJECT,))
+GObject.signal_new("colour-removed", ColourListStore, GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_PYOBJECT,))
 
 def paint_cell_data_func(column, cell, model, model_iter, attribute):
-    colour = model.get_value_named(model_iter, 'colour')
-    if attribute == 'name':
-        cell.set_property('text', colour.name)
-        cell.set_property('background-gdk', colour.to_gdk_color())
-        cell.set_property('foreground-gdk', colour.best_foreground_gdk_color())
-    elif attribute == 'value':
-        cell.set_property('text', str(float(round(colour.value, 2))))
-        cell.set_property('background-gdk', colour.value_rgb().to_gdk_color())
-        cell.set_property('foreground-gdk', colour.value_rgb().best_foreground_gdk_color())
-    elif attribute == 'hue':
-        cell.set_property('background-gdk', colour.hue_rgb.to_gdk_color())
-    elif attribute == 'finish':
-        cell.set_property('text', str(colour.finish))
-    elif attribute == 'transparency':
-        cell.set_property('text', str(colour.transparency))
+    colour = model.get_value_named(model_iter, "colour")
+    if attribute == "name":
+        cell.set_property("text", colour.name)
+        cell.set_property("background-gdk", colour.to_gdk_color())
+        cell.set_property("foreground-gdk", colour.best_foreground_gdk_color())
+    elif attribute == "value":
+        cell.set_property("text", str(float(round(colour.value, 2))))
+        cell.set_property("background-gdk", colour.value_rgb().to_gdk_color())
+        cell.set_property("foreground-gdk", colour.value_rgb().best_foreground_gdk_color())
+    elif attribute == "hue":
+        cell.set_property("background-gdk", colour.hue_rgb.to_gdk_color())
+    elif attribute == "finish":
+        cell.set_property("text", str(colour.finish))
+    elif attribute == "transparency":
+        cell.set_property("text", str(colour.transparency))
 
-TNS = collections.namedtuple('TNS', ['title', 'attr', 'properties', 'sort_key_function'])
+TNS = collections.namedtuple("TNS", ["title", "attr", "properties", "sort_key_function"])
 
 def colour_attribute_column_spec(tns):
     return tlview.ColumnSpec(
@@ -926,22 +909,20 @@ def colour_attribute_column_spec(tns):
     )
 
 COLOUR_ATTRS = [
-    TNS(_('Colour Name'), 'name', {'resizable' : True, 'expand' : True}, lambda row: row.colour.name),
-    TNS(_('Value'), 'value', {}, lambda row: row.colour.value),
-    TNS(_('Hue'), 'hue', {}, lambda row: row.colour.hue),
-    TNS(_('T.'), 'transparency', {}, lambda row: row.colour.transparency),
-    TNS(_('F.'), 'finish', {}, lambda row: row.colour.finish),
+    TNS(_("Colour Name"), "name", {"resizable" : True, "expand" : True}, lambda row: row.colour.name),
+    TNS(_("Value"), "value", {}, lambda row: row.colour.value),
+    TNS(_("Hue"), "hue", {}, lambda row: row.colour.hue),
+    TNS(_("T."), "transparency", {}, lambda row: row.colour.transparency),
+    TNS(_("F."), "finish", {}, lambda row: row.colour.finish),
 ]
 
 def colour_attribute_column_specs(model):
-    """
-    Generate the column specitications for colour attributes
+    """Generate the column specitications for colour attributes
     """
     return [colour_attribute_column_spec(tns) for tns in COLOUR_ATTRS]
 
 def generate_colour_list_spec(model):
-    """
-    Generate the specification for a paint colour list
+    """Generate the specification for a paint colour list
     """
     return tlview.ViewSpec(
         properties={},
@@ -952,29 +933,27 @@ def generate_colour_list_spec(model):
 class ColourListView(tlview.View, actions.CAGandUIManager, dialogue.AskerMixin):
     MODEL = ColourListStore
     SPECIFICATION = generate_colour_list_spec(ColourListStore)
-    UI_DESCR = '''
+    UI_DESCR = """
     <ui>
-        <popup name='colour_list_popup'>
-            <menuitem action='remove_selected_colours'/>
+        <popup name="colour_list_popup">
+            <menuitem action="remove_selected_colours"/>
         </popup>
     </ui>
-    '''
+    """
     def __init__(self, *args, **kwargs):
         tlview.View.__init__(self, *args, **kwargs)
-        actions.CAGandUIManager.__init__(self, selection=self.get_selection(), popup='/colour_list_popup')
+        actions.CAGandUIManager.__init__(self, selection=self.get_selection(), popup="/colour_list_popup")
     def populate_action_groups(self):
-        """
-        Populate action groups ready for UI initialization.
+        """Populate action groups ready for UI initialization.
         """
         self.action_groups[actions.AC_SELN_MADE].add_actions(
             [
-                ('remove_selected_colours', Gtk.STOCK_REMOVE, None, None,
-                 _('Remove the selected colours from the list.'), self._remove_selection_cb),
+                ("remove_selected_colours", Gtk.STOCK_REMOVE, None, None,
+                 _("Remove the selected colours from the list."), self._remove_selection_cb),
             ]
         )
     def _remove_selection_cb(self, _action):
-        """
-        Delete the currently selected colours
+        """Delete the currently selected colours
         """
         colours = self.get_selected_colours()
         if len(colours) == 0:
@@ -986,8 +965,7 @@ class ColourListView(tlview.View, actions.CAGandUIManager, dialogue.AskerMixin):
         if self.ask_ok_cancel(msg):
             self.model.remove_colours(colours)
     def get_selected_colours(self):
-        """
-        Return the currently selected colours as a list.
+        """Return the currently selected colours as a list.
         """
         return [row.colour for row in self.MODEL.get_selected_rows(self.get_selection())]
 
@@ -1023,11 +1001,10 @@ class RGBEntryBox(Gtk.HBox):
 GObject.signal_new("colour-changed", RGBEntryBox, GObject.SignalFlags.RUN_LAST, None, ())
 
 class PaintColourInformationDialogue(dialogue.Dialog):
-    """
-    A dialog to display the detailed information for a paint colour
+    """A dialog to display the detailed information for a paint colour
     """
     def __init__(self, colour, parent=None):
-        dialogue.Dialog.__init__(self, title=_('Paint Colour: {}').format(colour.name), parent=parent)
+        dialogue.Dialog.__init__(self, title=_("Paint Colour: {}").format(colour.name), parent=parent)
         last_size = recollect.get("paint_colour_information", "last_size")
         if last_size:
             self.set_default_size(*eval(last_size))
@@ -1045,5 +1022,5 @@ class PaintColourInformationDialogue(dialogue.Dialog):
     def _configure_event_cb(self, widget, allocation):
         recollect.set("paint_colour_information", "last_size", "({0.width}, {0.height})".format(allocation))
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     doctest.testmod()
