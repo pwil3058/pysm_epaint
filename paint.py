@@ -72,16 +72,18 @@ class HCV:
         xy = rgbh.Cartesian.from_rgb(self.rgb)
         self.hue = Hue.from_angle(xy.get_angle())
         self.chroma = xy.get_hypot() * self.hue.chroma_correction / RGB.ONE
-    def to_gdk_color(self):
-        return self.rgb.to_gdk_color()
-    def to_gdk_rgba(self, alpha=1.0):
-        return self.rgb.to_gdk_rgba(alpha=alpha)
-    def best_foreground(self, threshold=0.5):
-        return self.rgb.best_foreground(threshold)
-    def best_foreground_gdk_color(self, threshold=0.5):
-        return self.rgb.best_foreground_gdk_color(threshold)
-    def best_foreground_gdk_rgba(self, threshold=0.5):
-        return self.rgb.best_foreground_gdk_rgba(threshold)
+    def __getattr__(self, attr_name):
+        return getattr(self.rgb, attr_name)
+    #def to_gdk_color(self):
+        #return self.rgb.to_gdk_color()
+    #def to_gdk_rgba(self, alpha=1.0):
+        #return self.rgb.to_gdk_rgba(alpha=alpha)
+    #def best_foreground(self, threshold=0.5):
+        #return self.rgb.best_foreground(threshold)
+    #def best_foreground_gdk_color(self, threshold=0.5):
+        #return self.rgb.best_foreground_gdk_color(threshold)
+    #def best_foreground_gdk_rgba(self, threshold=0.5):
+        #return self.rgb.best_foreground_gdk_rgba(threshold)
     def value_rgb(self):
         return RGB.WHITE * self.value
     def hue_rgb_for_value(self, value=None):
@@ -127,8 +129,21 @@ class HCV:
     def __str__(self):
         string = "(HUE = {0}, ".format(str(self.hue.rgb))
         string += "VALUE = {0}, ".format(round(self.value, 2))
-        string += "CHROMA = {0}, ".format(round(self.chroma, 2))
+        string += "CHROMA = {0})".format(round(self.chroma, 2))
         return string
+
+class HCVW(HCV):
+    def __init__(self, rgb):
+        HCV.__init__(self, rgb)
+        xy = rgbh.XY.from_rgb(self.rgb)
+        self.warmth = fractions.Fraction.from_float(xy.x / RGB.ONE)
+    def __str__(self):
+        string = "(HUE = {0}, ".format(str(self.hue.rgb))
+        string += "VALUE = {0}, ".format(round(self.value, 2))
+        string += "CHROMA = {0}, ".format(round(self.chroma, 2))
+        string += "WARMTH = {0})".format(round(self.warmth, 2))
+        return string
+
 
 RATING = collections.namedtuple("RATING", ["abbrev", "descr", "rval"])
 
@@ -184,6 +199,14 @@ class MappedFloat(object):
     def __ne__(self, other):
         return self.val != other.val
 
+class Permanence(MappedFloat):
+    MAP = (
+            RATING('AA', _('Extremely Permanent'), 4.0),
+            RATING('A', _('Permanent'), 3.0),
+            RATING('B', _('Moderately Durable'), 2.0),
+            RATING('C', _('Fugitive'), 1.0),
+        )
+
 class Finish(MappedFloat):
     MAP = (
             RATING("G", _("Gloss"), 4.0),
@@ -211,7 +234,7 @@ class Transparency(MappedFloat):
 
 class Colour(object):
     def __init__(self, rgb, transparency=None, finish=None):
-        self.hcv = HCV(rgb)
+        self.rgb_etc = HCV(rgb)
         if transparency is None:
             transparency = Transparency("O")
         if finish is None:
@@ -220,55 +243,57 @@ class Colour(object):
         self.finish = finish if isinstance(finish, Finish) else Finish(finish)
     def __str__(self):
         string = "RGB: {0} Transparency: {1} Finish: {2} ".format(self.rgb, self.transparency, self.finish)
-        return string + str(self.hcv)
+        return string + str(self.rgb_etc)
     def __repr__(self):
         fmt_str = "Colour(rgb={0}, transparency={1}, finish={2})"
         return fmt_str.format(self.rgb, self.transparency, self.finish)
     def __getitem__(self, i):
-        return self.hcv.rgb[i]
+        return self.rgb_etc.rgb[i]
     def __iter__(self):
         """
         Iterate over colour's rgb values
         """
         for i in range(3):
-            yield self.hcv.rgb[i]
+            yield self.rgb_etc.rgb[i]
     def to_gdk_color(self):
-        return self.hcv.rgb.to_gdk_color()
+        return self.rgb_etc.rgb.to_gdk_color()
     def to_gdk_rgba(self, alpha=None):
         if alpha is None:
             alpha = self.transparency.to_alpha()
-        return self.hcv.rgb.to_gdk_rgba(alpha=alpha)
+        return self.rgb_etc.rgb.to_gdk_rgba(alpha=alpha)
     def best_foreground(self, threshold=0.5):
-        return self.hcv.rgb.best_foreground(threshold)
+        return self.rgb_etc.rgb.best_foreground(threshold)
     def best_foreground_gdk_color(self, threshold=0.5):
-        return self.hcv.rgb.best_foreground_gdk_color(threshold)
+        return self.rgb_etc.rgb.best_foreground_gdk_color(threshold)
     def best_foreground_gdk_rgba(self, threshold=0.5):
-        return self.hcv.rgb.best_foreground_gdk_rgba(threshold)
+        return self.rgb_etc.rgb.best_foreground_gdk_rgba(threshold)
     @property
     def rgb(self):
-        return self.hcv.rgb
+        return self.rgb_etc.rgb
     @property
     def hue_angle(self):
-        return self.hcv.hue.angle
+        return self.rgb_etc.hue.angle
     @property
     def hue(self):
-        return self.hcv.hue
+        return self.rgb_etc.hue
     @property
     def hue_rgb(self):
-        return RGB(*self.hcv.hue.rgb)
+        return RGB(*self.rgb_etc.hue.rgb)
     @property
     def value(self):
-        return self.hcv.value
+        return self.rgb_etc.value
     def value_rgb(self):
-        return self.hcv.value_rgb()
+        return self.rgb_etc.value_rgb()
     @property
     def chroma(self):
-        return self.hcv.chroma
+        return self.rgb_etc.chroma
+    def __getattr__(self, name):
+        return getattr(self.rgb_etc, name)
     def set_rgb(self, rgb):
         """
         Change this colours RGB values
         """
-        self.hcv = HCV(rgb)
+        self.rgb_etc = HCV(rgb)
     def set_finish(self, finish):
         """
         Change this colours finish value

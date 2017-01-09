@@ -76,6 +76,9 @@ class MappedFloatChoice(Gtk.ComboBoxText):
 class TransparencyChoice(MappedFloatChoice):
     MFDC = paint.Transparency
 
+class PermanenceChoice(MappedFloatChoice):
+    MFDC = paint.Permanence
+
 class FinishChoice(MappedFloatChoice):
     MFDC = paint.Finish
 
@@ -470,7 +473,7 @@ class ChromaDisplay(ValueDisplay):
                 self.fg_colour = self.target_fg_colour = paint.BLACK
         else:
             if self.target_colour is None:
-                self.start_colour = self.colour.hcv.chroma_side()
+                self.start_colour = self.colour.rgb_etc.chroma_side()
                 self.end_colour = colour.hue_rgb
             self.fg_colour = self.start_colour.best_foreground()
             self.indicator_val = colour.chroma
@@ -485,11 +488,24 @@ class ChromaDisplay(ValueDisplay):
             else:
                 self._set_colour(self.colour)
         else:
-            self.start_colour = colour.hcv.zero_chroma_rgb()
+            self.start_colour = colour.rgb_etc.zero_chroma_rgb()
             self.end_colour = colour.hue_rgb
             self.target_fg_colour = self.start_colour.best_foreground()
             self.target_val = colour.chroma
 
+
+class WarmthDisplay(ValueDisplay):
+    LABEL = _('Warmth')
+    def __init__(self, colour=None, size=(100, 15)):
+        GenericAttrDisplay.__init__(self, colour=colour, size=size)
+        self.start_colour = paint.CYAN
+        self.end_colour = paint.RED
+    def _set_colour(self, colour):
+        """
+        Set values that only change when the colour changes
+        """
+        self.fg_colour = colour.warmth_rgb().best_foreground()
+        self.indicator_val = (1 + colour.warmth) / 2
 
 class HCVDisplay(Gtk.VBox):
     def __init__(self, colour=paint.WHITE, target_colour=None, size=(256, 120), stype = Gtk.ShadowType.ETCHED_IN):
@@ -511,6 +527,17 @@ class HCVDisplay(Gtk.VBox):
         self.chroma.set_target_colour(new_target_colour)
         self.hue.set_target_colour(new_target_colour)
         self.value.set_target_colour(new_target_colour)
+
+class HCVWDisplay(HCVDisplay):
+    def __init__(self, colour=paint.WHITE, size=(256, 120), stype = Gtk.ShadowType.ETCHED_IN):
+        HCVDisplay.__init__(self, colour=colour, size=size, stype=stype)
+        w, h = size
+        self.warmth = WarmthDisplay(colour=colour, size=(w, h / 4))
+        self.pack_start(gutils.wrap_in_frame(self.warmth, stype), expand=False, fill=True, padding=0)
+        self.show()
+    def set_colour(self, new_colour):
+        HCVDisplay.set_colour(self, new_colour)
+        self.warmth.set_colour(new_colour)
 
 class HueWheelNotebook(Gtk.Notebook):
     def __init__(self, popup="/colour_wheel_I_popup"):
@@ -770,9 +797,9 @@ class ColourWheel(Gtk.DrawingArea, actions.CAGandUIManager):
             Set up colour values ready for drawing
             """
             self.colour_angle = self.colour.hue.angle if not self.colour.hue.is_grey() else mathx.Angle(math.pi / 2)
-            self.fg_colour = self.colour.rgb #self.parent.new_colour(self.colour.rgb)
-            self.value_colour = paint.BLACK #self.parent.new_colour(paint.BLACK)
-            self.chroma_colour = self.colour.hcv.chroma_side() #self.parent.new_colour(self.colour.hcv.chroma_side())
+            self.fg_colour = self.colour.rgb
+            self.value_colour = paint.BLACK
+            self.chroma_colour = self.colour.rgb_etc.chroma_side()
             self.choose_radius_attribute()
         def range_from(self, x, y):
             dx = x - self.x
@@ -914,6 +941,15 @@ COLOUR_ATTRS = [
     TNS(_("Hue"), "hue", {}, lambda row: row.colour.hue),
     TNS(_("T."), "transparency", {}, lambda row: row.colour.transparency),
     TNS(_("F."), "finish", {}, lambda row: row.colour.finish),
+]
+
+ARTIST_COLOUR_ATTRS = [
+    TNS(_("Colour Name"), "name", {"resizable" : True, "expand" : True}, lambda row: row.colour.name),
+    TNS(_("Value"), "value", {}, lambda row: row.colour.value),
+    TNS(_("Hue"), "hue", {}, lambda row: row.colour.hue),
+    TNS(_("Warmth"), "warmth", {}, lambda row: row.colour.warmth),
+    TNS(_("T."), "transparency", {}, lambda row: row.colour.transparency),
+    TNS(_("P."), "permanence", {}, lambda row: row.colour.permanence),
 ]
 
 def colour_attribute_column_specs(model):
