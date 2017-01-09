@@ -39,6 +39,7 @@ from ..gtx import tlview
 from ..gtx import recollect
 
 from . import paint
+from . import pchar
 from . import rgbh
 
 options.define("colour_wheel", "red_to_yellow_clockwise", options.Defn(bool, False, _("Direction around colour wheel from red to yellow.")))
@@ -54,33 +55,6 @@ def _gdk_color_to_rgb(gcol):
     elif len(gcol_str) == 6:
         return paint.RGB(*[int(gcol_str[i*2:(i+1) * 2] * 2, 16) for i in range(3)])
     return paint.RGB(*[int(gcol_str[i*4:(i+1) * 4], 16) for i in range(3)])
-
-class MappedFloatChoice(Gtk.ComboBoxText):
-    MFDC = None
-    def __init__(self):
-        Gtk.ComboBoxText.__init__(self)
-        for choice in ("{0}\t- {1}".format(item[0], item[1]) for item in self.MFDC.MAP):
-            self.append_text(choice)
-    def get_selection(self):
-        index = self.get_active()
-        rating = self.MFDC.MAP[index if index >= 0 else None]
-        return self.MFDC(rating.abbrev)
-    def set_selection(self, mapped_float):
-        abbrev = str(mapped_float)
-        for index, rating in enumerate(self.MFDC.MAP):
-            if abbrev == rating.abbrev:
-                self.set_active(index if index is not None else -1)
-                return
-        raise paint.MappedFloat.BadValue()
-
-class TransparencyChoice(MappedFloatChoice):
-    MFDC = paint.Transparency
-
-class PermanenceChoice(MappedFloatChoice):
-    MFDC = paint.Permanence
-
-class FinishChoice(MappedFloatChoice):
-    MFDC = paint.Finish
 
 def get_colour(arg):
     if isinstance(arg, paint.Colour):

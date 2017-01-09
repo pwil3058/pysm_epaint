@@ -24,6 +24,7 @@ import fractions
 
 from ..bab import mathx
 
+from . import pchar
 from . import rgbh
 
 if __name__ == "__main__":
@@ -145,102 +146,15 @@ class HCVW(HCV):
         return string
 
 
-RATING = collections.namedtuple("RATING", ["abbrev", "descr", "rval"])
-
-class MappedFloat(object):
-    class BadValue(Exception): pass
-    MAP = None
-    def __init__(self, ival=0.0):
-        if isinstance(ival, str):
-            self.val = None
-            for mapi in self.MAP:
-                if ival == mapi.abbrev or ival == mapi.descr:
-                    self.val = mapi.rval
-                    break
-            if self.val is None:
-                try:
-                    self.val = float(ival)
-                except ValueError:
-                    raise self.BadValue(_("Unrecognized rating value: {0}").format(ival))
-        else: # assume it's a real value in the mapped range
-            self.val = ival
-    def __str__(self):
-        rval = round(self.val, 0)
-        for mapi in self.MAP:
-            if rval == mapi.rval:
-                return mapi.abbrev
-        raise  self.BadValue(_("Invalid rating: {0}").format(self.val))
-    def description(self):
-        rval = round(self.val, 0)
-        for mapi in self.MAP:
-            if rval == mapi.rval:
-                return mapi.descr
-        raise  self.BadValue(_("Invalid rating: {0}").format(self.val))
-    # Enough operators to facilitate weighted averaging
-    def __mul__(self, multiplier):
-        return self.__class__(self.val * multiplier)
-    def __iadd__(self, other):
-        self.val += other.val
-        return self
-    def __itruediv__(self, divisor):
-        self.val /= divisor
-        return self
-    # And sorting (Python 3.0 compatible)
-    def __lt__(self, other):
-        return self.val < other.val
-    def __le__(self, other):
-        return self.val <= other.val
-    def __gt__(self, other):
-        return self.val > other.val
-    def __ge__(self, other):
-        return self.val >= other.val
-    def __eq__(self, other):
-        return self.val == other.val
-    def __ne__(self, other):
-        return self.val != other.val
-
-class Permanence(MappedFloat):
-    MAP = (
-            RATING('AA', _('Extremely Permanent'), 4.0),
-            RATING('A', _('Permanent'), 3.0),
-            RATING('B', _('Moderately Durable'), 2.0),
-            RATING('C', _('Fugitive'), 1.0),
-        )
-
-class Finish(MappedFloat):
-    MAP = (
-            RATING("G", _("Gloss"), 4.0),
-            RATING("SG", _("Semi-gloss"), 3.0),
-            RATING("SF", _("Semi-flat"), 2.0),
-            RATING("F", _("Flat"), 1.0),
-        )
-
-    def __repr__(self):
-        return "Finish({0})".format(self.val)
-
-class Transparency(MappedFloat):
-    MAP = (
-            RATING("O", _("Opaque"), 1.0),
-            RATING("SO", _("Semi-opaque"), 2.0),
-            RATING("ST", _("Semi-transparent"), 3.0),
-            RATING("T", _("Transparent"), 4.0),
-            RATING("C", _("Clear"), 5.0),
-        )
-
-    def __repr__(self):
-        return "Transparency({0})".format(self.val)
-    def to_alpha(self):
-        return (5.0 - self.val) / 4.0
-
 class Colour(object):
     def __init__(self, rgb, transparency=None, finish=None):
         self.rgb_etc = HCV(rgb)
         if transparency is None:
-            transparency = Transparency("O")
+            transparency = pchar.Transparency("O")
         if finish is None:
-            finish = Finish("F")
-        self.transparency = transparency if isinstance(transparency, Transparency) else Transparency(transparency)
-        self.finish = finish if isinstance(finish, Finish) else Finish(finish)
+            finish = pchar.Finish("F")
+        self.transparency = transparency if isinstance(transparency, pchar.Transparency) else pchar.Transparency(transparency)
+        self.finish = finish if isinstance(finish, pchar.Finish) else pchar.Finish(finish)
     def __str__(self):
         string = "RGB: {0} Transparency: {1} Finish: {2} ".format(self.rgb, self.transparency, self.finish)
         return string + str(self.rgb_etc)
@@ -298,12 +212,12 @@ class Colour(object):
         """
         Change this colours finish value
         """
-        self.finish = finish if isinstance(finish, Finish) else Finish(finish)
+        self.finish = finish if isinstance(finish, pchar.Finish) else pchar.Finish(finish)
     def set_transparency(self, transparency):
         """
         Change this colours transparency value
         """
-        self.transparency = transparency if isinstance(transparency, Transparency) else Transparency(transparency)
+        self.transparency = transparency if isinstance(transparency, pchar.Transparency) else pchar.Transparency(transparency)
 
 class NamedColour(Colour):
     def __init__(self, name, rgb, transparency=None, finish=None):
@@ -392,8 +306,8 @@ BLOB = collections.namedtuple("BLOB", ["colour", "parts"])
 class MixedColour(Colour):
     def __init__(self, blobs):
         rgb = RGB.BLACK
-        transparency = Transparency(0.0)
-        finish = Finish(0.0)
+        transparency = pchar.Transparency(0.0)
+        finish = pchar.Finish(0.0)
         parts = 0
         for blob in blobs:
             parts += blob.parts
