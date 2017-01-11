@@ -75,16 +75,6 @@ class HCV:
         self.chroma = xy.get_hypot() * self.hue.chroma_correction / RGB.ONE
     def __getattr__(self, attr_name):
         return getattr(self.rgb, attr_name)
-    #def to_gdk_color(self):
-        #return self.rgb.to_gdk_color()
-    #def to_gdk_rgba(self, alpha=1.0):
-        #return self.rgb.to_gdk_rgba(alpha=alpha)
-    #def best_foreground(self, threshold=0.5):
-        #return self.rgb.best_foreground(threshold)
-    #def best_foreground_gdk_color(self, threshold=0.5):
-        #return self.rgb.best_foreground_gdk_color(threshold)
-    #def best_foreground_gdk_rgba(self, threshold=0.5):
-        #return self.rgb.best_foreground_gdk_rgba(threshold)
     def value_rgb(self):
         return RGB.WHITE * self.value
     def hue_rgb_for_value(self, value=None):
@@ -161,6 +151,8 @@ class Colour(object):
     def __repr__(self):
         fmt_str = "Colour(rgb={0}, transparency={1}, finish={2})"
         return fmt_str.format(self.rgb, self.transparency, self.finish)
+    def __getattr__(self, name):
+        return getattr(self.rgb_etc, name)
     def __getitem__(self, i):
         return self.rgb_etc.rgb[i]
     def __iter__(self):
@@ -201,8 +193,6 @@ class Colour(object):
     @property
     def chroma(self):
         return self.rgb_etc.chroma
-    def __getattr__(self, name):
-        return getattr(self.rgb_etc, name)
     def set_rgb(self, rgb):
         """
         Change this colours RGB values
@@ -219,10 +209,15 @@ class Colour(object):
         """
         self.transparency = transparency if isinstance(transparency, pchar.Transparency) else pchar.Transparency(transparency)
 
-class NamedColour(Colour):
+class NamedColour:
+    COLOUR = Colour
     def __init__(self, name, rgb, transparency=None, finish=None):
-        Colour.__init__(self, rgb, transparency=transparency, finish=finish)
+        self.colour = self.COLOUR(rgb, transparency=transparency, finish=finish)
         self.name = name
+    def __getattr__(self, attr_name):
+        return getattr(self.colour, attr_name)
+    def __getitem__(self, i):
+        return self.colour.__getitem__(i)
     def __repr__(self):
         fmt_str = "NamedColour(name=\"{0}\", rgb={1}, transparency=\"{2}\", finish=\"{3}\")"
         return fmt_str.format(re.sub('"', r'\"', self.name), self.rgb, self.transparency, self.finish)
@@ -236,10 +231,14 @@ IDEAL_COLOURS = [WHITE, MAGENTA, RED, YELLOW, GREEN, CYAN, BLUE, BLACK]
 
 SERIES_ID = collections.namedtuple("SERIES_ID", ["maker", "name"])
 
-class PaintColour(NamedColour):
+class PaintColour:
+    COLOUR = Colour
     def __init__(self, series, name, rgb, transparency=None, finish=None):
-        NamedColour.__init__(self, name, rgb, transparency=transparency, finish=finish)
+        self.colour = self.COLOUR(rgb, transparency=transparency, finish=finish)
+        self.name = name
         self.series = series
+    def __getattr__(self, attr_name):
+        return getattr(self.colour, attr_name)
     def __str__(self):
         return self.name + " ({0}: {1})".format(*self.series.series_id)
     def __len__(self):
