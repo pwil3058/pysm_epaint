@@ -75,6 +75,10 @@ class HCV:
         self.chroma = xy.get_hypot() * self.hue.chroma_correction / RGB.ONE
     def __getattr__(self, attr_name):
         return getattr(self.rgb, attr_name)
+    @property
+    def hue_rgb(self):
+        return RGB(*self.hue.rgb)
+    @property
     def value_rgb(self):
         return RGB.WHITE * self.value
     def hue_rgb_for_value(self, value=None):
@@ -87,7 +91,7 @@ class HCV:
         # having white or black (whichever is quicker) added until the
         # chroma value is zero (useful for displaying chroma values)
         if self.hue.is_grey():
-            return self.value_rgb()
+            return self.value_rgb
         mcv = self.hue.max_chroma_value()
         dc = 1.0 - self.chroma
         if dc != 0.0:
@@ -99,9 +103,9 @@ class HCV:
     def chroma_side(self):
         # Is it darker or lighter than max chroma for the hue?
         if sum(self.rgb) > sum(self.hue.rgb):
-            return WHITE
+            return RGB.WHITE
         else:
-            return BLACK
+            return RGB.BLACK
     def get_rotated_rgb(self, delta_hue_angle):
         """
         Return a copy of our rgb rotated by the given amount but with
@@ -135,190 +139,158 @@ class HCVW(HCV):
         string += "WARMTH = {0})".format(round(self.warmth, 2))
         return string
 
-
-class Colour(object):
-    def __init__(self, rgb, transparency=None, finish=None):
-        self.rgb_etc = HCV(rgb)
-        if transparency is None:
-            transparency = pchar.Transparency("O")
-        if finish is None:
-            finish = pchar.Finish("F")
-        self.transparency = transparency if isinstance(transparency, pchar.Transparency) else pchar.Transparency(transparency)
-        self.finish = finish if isinstance(finish, pchar.Finish) else pchar.Finish(finish)
-    def __str__(self):
-        string = "RGB: {0} Transparency: {1} Finish: {2} ".format(self.rgb, self.transparency, self.finish)
-        return string + str(self.rgb_etc)
-    def __repr__(self):
-        fmt_str = "Colour(rgb={0}, transparency={1}, finish={2})"
-        return fmt_str.format(self.rgb, self.transparency, self.finish)
-    def __getattr__(self, name):
-        return getattr(self.rgb_etc, name)
-    def __getitem__(self, i):
-        return self.rgb_etc.rgb[i]
-    def __iter__(self):
-        """
-        Iterate over colour's rgb values
-        """
-        for i in range(3):
-            yield self.rgb_etc.rgb[i]
-    def to_gdk_color(self):
-        return self.rgb_etc.rgb.to_gdk_color()
-    def to_gdk_rgba(self, alpha=None):
-        if alpha is None:
-            alpha = self.transparency.to_alpha()
-        return self.rgb_etc.rgb.to_gdk_rgba(alpha=alpha)
-    def best_foreground(self, threshold=0.5):
-        return self.rgb_etc.rgb.best_foreground(threshold)
-    def best_foreground_gdk_color(self, threshold=0.5):
-        return self.rgb_etc.rgb.best_foreground_gdk_color(threshold)
-    def best_foreground_gdk_rgba(self, threshold=0.5):
-        return self.rgb_etc.rgb.best_foreground_gdk_rgba(threshold)
-    @property
-    def rgb(self):
-        return self.rgb_etc.rgb
-    @property
-    def hue_angle(self):
-        return self.rgb_etc.hue.angle
-    @property
-    def hue(self):
-        return self.rgb_etc.hue
-    @property
-    def hue_rgb(self):
-        return RGB(*self.rgb_etc.hue.rgb)
-    @property
-    def value(self):
-        return self.rgb_etc.value
-    def value_rgb(self):
-        return self.rgb_etc.value_rgb()
-    @property
-    def chroma(self):
-        return self.rgb_etc.chroma
-    def set_rgb(self, rgb):
-        """
-        Change this colours RGB values
-        """
-        self.rgb_etc = HCV(rgb)
-    def set_finish(self, finish):
-        """
-        Change this colours finish value
-        """
-        self.finish = finish if isinstance(finish, pchar.Finish) else pchar.Finish(finish)
-    def set_transparency(self, transparency):
-        """
-        Change this colours transparency value
-        """
-        self.transparency = transparency if isinstance(transparency, pchar.Transparency) else pchar.Transparency(transparency)
-
-class NamedColour:
-    COLOUR = Colour
-    def __init__(self, name, rgb, transparency=None, finish=None):
-        self.colour = self.COLOUR(rgb, transparency=transparency, finish=finish)
-        self.name = name
+class NamedColour(collections.namedtuple("NamedColour", ["name", "colour"])):
     def __getattr__(self, attr_name):
         return getattr(self.colour, attr_name)
-    def __getitem__(self, i):
-        return self.colour.__getitem__(i)
     def __repr__(self):
-        fmt_str = "NamedColour(name=\"{0}\", rgb={1}, transparency=\"{2}\", finish=\"{3}\")"
-        return fmt_str.format(re.sub('"', r'\"', self.name), self.rgb, self.transparency, self.finish)
+        fmt_str = "NamedColour(name=\"{0}\", colour={1})"
+        return fmt_str.format(re.sub('"', r'\"', self.name), repr(self.colour))
     def __str__(self):
         return self.name
     def __len__(self):
         return len(self.name)
 
-WHITE, MAGENTA, RED, YELLOW, GREEN, CYAN, BLUE, BLACK = [NamedColour(name, rgb) for name, rgb in zip(IDEAl_COLOUR_NAMES, IDEAL_RGB_COLOURS)]
+
+WHITE, MAGENTA, RED, YELLOW, GREEN, CYAN, BLUE, BLACK = [NamedColour(name, HCV(rgb)) for name, rgb in zip(IDEAl_COLOUR_NAMES, IDEAL_RGB_COLOURS)]
 IDEAL_COLOURS = [WHITE, MAGENTA, RED, YELLOW, GREEN, CYAN, BLUE, BLACK]
+
+class Paint:
+    COLOUR = None
+    CHARACTERISTICS = None
+    def __init__(self, name, rgb, **kwargs):
+        self.name = name
+        self.colour = self.COLOUR(rgb)
+        self.characteristics = self.CHARACTERISTICS(**kwargs)
+    def __getattr__(self, attr_name):
+        try:
+            return getattr(self.colour, attr_name)
+        except AttributeError:
+            return getattr(self.characteristics, attr_name)
+    def set_rgb(self, rgb):
+        self.colour = self.COLOUR(rgb)
+    def set_characteristic(self, c_name, c_value):
+        setattr(self.characteristics, c_name, c_value)
+
+class ModelPaintCharacteristics(pchar.Characteristics):
+    NAMES = ("transparency", "finish")
+
+class ModelPaint(Paint):
+    COLOUR = HCV
+    CHARACTERISTICS = ModelPaintCharacteristics
+    def __repr__(self):
+        fmt_str = "ModelPaint(name=\"{0}\", rgb={1}, transparency=\"{2}\", finish=\"{3}\")"
+        return fmt_str.format(re.sub('"', r'\"', self.name), self.rgb, self.transparency, self.finish)
 
 SERIES_ID = collections.namedtuple("SERIES_ID", ["maker", "name"])
 
-class PaintColour:
-    COLOUR = Colour
-    def __init__(self, series, name, rgb, transparency=None, finish=None):
-        self.colour = self.COLOUR(rgb, transparency=transparency, finish=finish)
-        self.name = name
-        self.series = series
+class SeriesPaint(collections.namedtuple("SeriesPaint", ["series", "paint"])):
     def __getattr__(self, attr_name):
-        return getattr(self.colour, attr_name)
+        return getattr(self.paint, attr_name)
     def __str__(self):
         return self.name + " ({0}: {1})".format(*self.series.series_id)
     def __len__(self):
         return len(str(self))
+    def __repr__(self):
+        return "SeriesPaint(series={}, paint={})".format(self.series.series_id, repr(self.paint))
 
-class Series(object):
+NC_MATCHER = re.compile(r'^NamedColour\(name=(".+"), rgb=(.+), transparency="(.+)", finish="(.+)"\)$')
+
+class PaintSeries:
     class ParseError(Exception):
         pass
-    def __init__(self, maker, name, colours=None):
+    def __init__(self, maker, name, paints=None):
         self.series_id = SERIES_ID(maker=maker, name=name)
-        self.paint_colours = {}
-        for colour in colours:
-            self.add_colour(colour)
-    def __cmp__(self, other):
-        result = cmp(self.series_id.maker, other.series_id.maker)
-        if result == 0:
-            result = cmp(self.series_id.name, other.series_id.name)
-        return result
-    def add_colour(self, colour):
-        paint_colour = PaintColour(self, name=colour.name, rgb=colour.rgb, transparency=colour.transparency, finish=colour.finish)
-        self.paint_colours[paint_colour.name] = paint_colour
+        self.paints = {}
+        if paints:
+            for paint in paints:
+                self.add_paint(paint)
+    def __lt__(self, other):
+        if self.series_id.maker < other.series_id.maker:
+            return True
+        elif self.series_id.maker > other.series_id.maker:
+            return False
+        return self.series_id.name < other.series_id.name
+    def add_paint(self, paint):
+        if isinstance(paint, SeriesPaint):
+            self.paints[paint.name] = SeriesPaint(self, paint.paint)
+        else:
+            self.paints[paint.name] = SeriesPaint(self, paint)
     def definition_text(self):
         # No i18n for these strings
         string = "Manufacturer: {0}\n".format(self.series_id.maker)
         string += "Series: {0}\n".format(self.series_id.name)
-        for colour in sorted(self.paint_colours.values(), key=lambda x: x.name):
-            string += "{0}\n".format(repr(colour))
+        for paint in sorted(self.paints.values(), key=lambda x: x.name):
+            string += "{0}\n".format(repr(paint.paint))
         return string
-    @staticmethod
-    def fm_definition(definition_text):
+    @property
+    def paint_colours(self): # replace with __iter__
+        return self.paints
+    @classmethod
+    def fm_definition(cls, definition_text):
         lines = definition_text.splitlines()
         if len(lines) < 2:
-            raise Series.ParseError(_("Too few lines: {0}.".format(len(lines))))
+            raise cls.ParseError(_("Too few lines: {0}.".format(len(lines))))
         match = re.match("^Manufacturer:\s+(\S.*)\s*$", lines[0])
         if not match:
-            raise Series.ParseError(_("Manufacturer not found."))
+            raise cls.ParseError(_("Manufacturer not found."))
         mfkr_name = match.group(1)
         match = re.match("^Series:\s+(\S.*)\s*$", lines[1])
         if not match:
-            raise Series.ParseError(_("Series name not found."))
+            raise cls.ParseError(_("Series name not found."))
         series_name = match.group(1)
-        matcher = re.compile("(^[^:]+):\s+(RGB\([^)]+\)), (Transparency\([^)]+\)), (Finish\([^)]+\))$")
-        if len(lines) > 2 and matcher.match(lines[2]):
-            # Old format
-            # TODO: remove support for old paint series format
-            colours = []
-            for line in lines[2:]:
-                match = matcher.match(line)
-                if not match:
-                    raise Series.ParseError(_("Badly formed definition: {0}.").format(line))
-                # Old data files were wx and hence 8 bits per channel
-                # so we need to convert them to 16 bist per channel
-                rgb = [channel << 8 for channel in eval(match.group(2))]
-                colours.append(NamedColour(match.group(1), rgb, eval(match.group(3)), eval(match.group(4))))
-        else:
-            try:
-                colours = [eval(line) for line in lines[2:]]
-            except TypeError as edata:
-                raise Series.ParseError(_("Badly formed definition: {0}. ({1})").format(line, str(edata)))
-        return Series(maker=mfkr_name, name=series_name, colours=colours)
+        series = cls(maker=mfkr_name, name=series_name)
+        if len(lines) > 2:
+            matcher = re.compile("(^[^:]+):\s+(RGB\([^)]+\)), (Transparency\([^)]+\)), (Finish\([^)]+\))$")
+            if matcher.match(lines[2]):
+                # Old format
+                # TODO: remove support for old paint series format
+                colours = []
+                for line in lines[2:]:
+                    match = matcher.match(line)
+                    if not match:
+                        raise cls.ParseError(_("Badly formed definition: {0}.").format(line))
+                    # Old data files were wx and hence 8 bits per channel
+                    # so we need to convert them to 16 bist per channel
+                    rgb = [channel << 8 for channel in eval(match.group(2))]
+                    series.add_paint(ModelPaint(match.group(1), rgb, eval(match.group(3)), eval(match.group(4))))
+            elif NC_MATCHER.match(lines[2]):
+                colours = []
+                for line in lines[2:]:
+                    match = NC_MATCHER.match(line)
+                    if not match:
+                        raise cls.ParseError(_("Badly formed definition: {0}.").format(line))
+                    name = eval(match.group(1))
+                    rgb = eval(match.group(2))
+                    series.add_paint(ModelPaint(name, rgb, transparency=match.group(3), finish=match.group(4)))
+            else:
+                for line in lines[2:]:
+                    try:
+                        series.add_paint(eval(line))
+                    except TypeError as edata:
+                        raise cls.ParseError(_("Badly formed definition: {0}. ({1})").format(line, str(edata)))
+        return series
 
 BLOB = collections.namedtuple("BLOB", ["colour", "parts"])
 
-class MixedColour(Colour):
+class Mixture:
+    PAINT = None
     def __init__(self, blobs):
-        rgb = RGB.BLACK
-        transparency = pchar.Transparency(0.0)
-        finish = pchar.Finish(0.0)
+        rgb = RGB.BLACK # TODO: use PAINT to get this
+        self.characteristics = self.PAINT.CHARACTERISTICS()
         parts = 0
         for blob in blobs:
             parts += blob.parts
             rgb += blob.colour.rgb * blob.parts
-            transparency += blob.colour.transparency * blob.parts
-            finish += blob.colour.finish * blob.parts
-        if parts > 0:
-            rgb /= parts
-            transparency /= parts
-            finish /= parts
-        Colour.__init__(self, rgb=rgb, transparency=transparency, finish=finish)
+            self.characteristics += blob.colour.characteristics * blob.parts
+        assert parts > 0, "Empty Mixture"
+        self.colour = self.PAINT.COLOUR(rgb / parts)
+        self.characteristics /= parts
         self.blobs = sorted(blobs, key=lambda x: x.parts, reverse=True)
+    def __getattr__(self, attr_name):
+        try:
+            return getattr(self.colour, attr_name)
+        except AttributeError:
+            return getattr(self.characteristics, attr_name)
     def _components_str(self):
         string = _("\nComponents:\n")
         for blob in self.blobs:
@@ -332,13 +304,22 @@ class MixedColour(Colour):
                 return True
         return False
 
-class NamedMixedColour(MixedColour):
+class MixedPaint:
+    MIXTURE = None
     def __init__(self, blobs, name, notes=""):
-        MixedColour.__init__(self, blobs)
+        self.mixture = self.MIXTURE(blobs)
         self.name = name
         self.notes = notes
+    def __getattr__(self, attr_name):
+        return getattr(self.mixture, attr_name)
     def __str__(self):
         return ("Name: \"{0}\" Notes: \"{1}\"").format(self.name, self.notes) + Colour.__str__(self) + self._components_str()
+
+class ModelMixture(Mixture):
+    PAINT = ModelPaint
+
+class MixedModelPaint(MixedPaint):
+    MIXTURE = ModelMixture
 
 if __name__ == "__main__":
     doctest.testmod()

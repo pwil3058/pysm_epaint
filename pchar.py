@@ -32,12 +32,9 @@ CHARACTERISTIC = collections.namedtuple("CHARACTERISTIC", ["abbrev", "descr", "r
 
 
 class MappedFloat:
-    DEFAULT = 0.0
     MAP = None
-    def __init__(self, ival=None):
-        if ival is None:
-            self.val = self.DEFAULT
-        elif isinstance(ival, str):
+    def __init__(self, ival=0.0):
+        if isinstance(ival, str):
             self.val = None
             for mapi in self.MAP:
                 if ival == mapi.abbrev or ival == mapi.descr:
@@ -56,6 +53,8 @@ class MappedFloat:
             if rval == mapi.rval:
                 return mapi.abbrev
         raise  self.BadValue(_("Invalid characteristic: {0}").format(self.val))
+    def __repr__(self):
+        return "{0}({1})".format(self.__class__.__name__, self.val)
     def description(self):
         rval = round(self.val, 0)
         for mapi in self.MAP:
@@ -113,9 +112,6 @@ class Permanence(MappedFloat):
             CHARACTERISTIC("C", _("Fugitive"), 1.0),
         )
 
-    def __repr__(self):
-        return "Permanence({0})".format(self.val)
-
 
 class PermanenceChoice(MappedFloatChoice):
     MFDC = Permanence
@@ -128,9 +124,6 @@ class Finish(MappedFloat):
             CHARACTERISTIC("SF", _("Semi-flat"), 2.0),
             CHARACTERISTIC("F", _("Flat"), 1.0),
         )
-
-    def __repr__(self):
-        return "Finish({0})".format(self.val)
 
 
 class FinishChoice(MappedFloatChoice):
@@ -146,12 +139,46 @@ class Transparency(MappedFloat):
             CHARACTERISTIC("C", _("Clear"), 5.0),
         )
 
-    def __repr__(self):
-        return "Transparency({0})".format(self.val)
-
     def to_alpha(self):
         return (5.0 - self.val) / 4.0
 
 
 class TransparencyChoice(MappedFloatChoice):
     MFDC = Transparency
+
+CHARACTERISTIC_CHOOSERS = {
+    "permanence" : PermanenceChoice,
+    "finish" : FinishChoice,
+    "transparency" : TransparencyChoice
+}
+
+class Characteristics:
+    NAMES = list()
+    def __init__(self, **kwargs):
+        if len(kwargs):
+            assert len(self.NAMES) == len(kwargs) # all or nothing
+            for name in self.NAMES:
+                setattr(self, name, kwargs[name])
+        else:
+            for name in self.NAMES:
+                self.__dict__[name] = CHARACTERISTIC_CHOOSERS[name].MFDC()
+    def __setattr__(self, attr_name, value):
+        assert attr_name in self.NAMES, "{}: Unknown characteristic".format(attr_name)
+        mfdc = CHARACTERISTIC_CHOOSERS[attr_name].MFDC
+        self.__dict__[attr_name] = value if isinstance(value, mfdc) else mfdc(value)
+    def __iter__(self):
+        return (getattr(self, name) for name in self.NAMES)
+    # Enough operators to facilitate weighted averaging
+    def __mul__(self, multiplier):
+        result = self.__class__()
+        for name in self.NAMES:
+            result.__dict__[name] = getattr(self, name) * multiplier
+        return result
+    def __iadd__(self, other):
+        for name in self.NAMES:
+            self.__dict__[name] += getattr(other, name)
+        return self
+    def __itruediv__(self, divisor):
+        for name in self.NAMES:
+            self.__dict__[name] /= divisor
+        return self
