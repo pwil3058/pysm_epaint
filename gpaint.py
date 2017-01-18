@@ -478,8 +478,16 @@ class WarmthDisplay(ValueDisplay):
         """
         Set values that only change when the colour changes
         """
-        self.fg_colour = colour.warmth_rgb().best_foreground()
+        self.fg_colour = colour.warmth_rgb.best_foreground()
         self.indicator_val = (1 + colour.warmth) / 2
+    def _set_target_colour(self, colour):
+        """Set values that only change when the target colour changes
+        """
+        if colour is None:
+            self.target_val = None
+        else:
+            self.target_fg_colour = colour.warmth_rgb.best_foreground()
+            self.target_val = (1 + colour.warmth) / 2
 
 class HCVDisplay(Gtk.VBox):
     def __init__(self, colour=paint.WHITE, target_colour=None, size=(256, 120), stype = Gtk.ShadowType.ETCHED_IN):
@@ -503,8 +511,8 @@ class HCVDisplay(Gtk.VBox):
         self.value.set_target_colour(new_target_colour)
 
 class HCVWDisplay(HCVDisplay):
-    def __init__(self, colour=paint.WHITE, size=(256, 120), stype = Gtk.ShadowType.ETCHED_IN):
-        HCVDisplay.__init__(self, colour=colour, size=size, stype=stype)
+    def __init__(self, colour=paint.WHITE, target_colour=None, size=(256, 120), stype = Gtk.ShadowType.ETCHED_IN):
+        HCVDisplay.__init__(self, colour=colour, target_colour=target_colour, size=size, stype=stype)
         w, h = size
         self.warmth = WarmthDisplay(colour=colour, size=(w, h / 4))
         self.pack_start(gutils.wrap_in_frame(self.warmth, stype), expand=False, fill=True, padding=0)
@@ -512,6 +520,9 @@ class HCVWDisplay(HCVDisplay):
     def set_colour(self, new_colour):
         HCVDisplay.set_colour(self, new_colour)
         self.warmth.set_colour(new_colour)
+    def set_target_colour(self, new_target_colour):
+        HCVDisplay.set_target_colour(self, new_target_colour)
+        self.warmth.set_target_colour(new_target_colour)
 
 class HueWheelNotebook(Gtk.Notebook):
     def __init__(self, popup="/colour_wheel_I_popup"):
@@ -934,7 +945,7 @@ class ModelPaintListStore(PaintListStore):
         TNS(_("F."), "finish", {}, lambda row: row[0].finish),
     ]
 
-class ArtistPaintListStore(PaintListStore):
+class ArtPaintListStore(PaintListStore):
     COLUMN_DEFS = [
         TNS(_("Colour Name"), "name", {"resizable" : True, "expand" : True}, lambda row: row[0].name),
         TNS(_("Value"), "value", {}, lambda row: row[0].value),
@@ -994,6 +1005,9 @@ class ModelPaintListView(tlview.View, actions.CAGandUIManager, dialogue.AskerMix
         """
         model, paths = self.get_selection().get_selected_rows()
         return [model[p][0] for p in paths]
+
+class ArtPaintListView(ModelPaintListView):
+    MODEL = ArtPaintListStore
 
 class RGBEntryBox(Gtk.HBox):
     def __init__(self, initial_colour=paint.BLACK):

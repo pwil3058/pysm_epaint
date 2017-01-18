@@ -130,8 +130,13 @@ class HCV:
 class HCVW(HCV):
     def __init__(self, rgb):
         HCV.__init__(self, rgb)
-        xy = rgbh.XY.from_rgb(self.rgb)
+        xy = rgbh.Cartesian.from_rgb(self.rgb)
         self.warmth = fractions.Fraction.from_float(xy.x / RGB.ONE)
+    @property
+    def warmth_rgb(self):
+        return (RGB.CYAN * (1 - self.warmth) + RGB.RED * (1 + self.warmth)) / 2
+    def __getattr__(self, attr_name):
+        return getattr(self.rgb, attr_name)
     def __str__(self):
         string = "(HUE = {0}, ".format(str(self.hue.rgb))
         string += "VALUE = {0}, ".format(round(self.value, 2))
@@ -151,7 +156,7 @@ class NamedColour(collections.namedtuple("NamedColour", ["name", "colour"])):
         return len(self.name)
 
 
-WHITE, MAGENTA, RED, YELLOW, GREEN, CYAN, BLUE, BLACK = [NamedColour(name, HCV(rgb)) for name, rgb in zip(IDEAl_COLOUR_NAMES, IDEAL_RGB_COLOURS)]
+WHITE, MAGENTA, RED, YELLOW, GREEN, CYAN, BLUE, BLACK = [NamedColour(name, HCVW(rgb)) for name, rgb in zip(IDEAl_COLOUR_NAMES, IDEAL_RGB_COLOURS)]
 IDEAL_COLOURS = [WHITE, MAGENTA, RED, YELLOW, GREEN, CYAN, BLUE, BLACK]
 
 class Paint:
@@ -181,6 +186,16 @@ class ModelPaint(Paint):
         fmt_str = "ModelPaint(name=\"{0}\", rgb={1}, transparency=\"{2}\", finish=\"{3}\")"
         return fmt_str.format(re.sub('"', r'\"', self.name), self.rgb, self.transparency, self.finish)
 
+class ArtPaintCharacteristics(pchar.Characteristics):
+    NAMES = ("transparency", "permanence")
+
+class ArtPaint(Paint):
+    COLOUR = HCVW
+    CHARACTERISTICS = ArtPaintCharacteristics
+    def __repr__(self):
+        fmt_str = "ModelPaint(name=\"{0}\", rgb={1}, transparency=\"{2}\", permanence=\"{3}\")"
+        return fmt_str.format(re.sub('"', r'\"', self.name), self.rgb, self.transparency, self.permanence)
+
 SERIES_ID = collections.namedtuple("SERIES_ID", ["maker", "name"])
 
 class SeriesPaint(collections.namedtuple("SeriesPaint", ["series", "paint"])):
@@ -193,7 +208,8 @@ class SeriesPaint(collections.namedtuple("SeriesPaint", ["series", "paint"])):
     def __repr__(self):
         return "SeriesPaint(series={}, paint={})".format(self.series.series_id, repr(self.paint))
 
-NC_MATCHER = re.compile(r'^NamedColour\(name=(".+"), rgb=(.+), transparency="(.+)", finish="(.+)"\)$')
+MODEL_NC_MATCHER = re.compile(r'^NamedColour\(name=(".+"), rgb=(.+), transparency="(.+)", finish="(.+)"\)$')
+ART_NC_MATCHER = re.compile(r'^NamedColour\(name=(".+"), rgb=(.+), transparency="(.+)", permanence="(.+)"\)$')
 
 class PaintSeries:
     class ParseError(Exception):
@@ -240,28 +256,50 @@ class PaintSeries:
         series_name = match.group(1)
         series = cls(maker=mfkr_name, name=series_name)
         if len(lines) > 2:
-            matcher = re.compile("(^[^:]+):\s+(RGB\([^)]+\)), (Transparency\([^)]+\)), (Finish\([^)]+\))$")
-            if matcher.match(lines[2]):
+            old_model_matcher = re.compile("(^[^:]+):\s+(RGB\([^)]+\)), (Transparency\([^)]+\)), (Finish\([^)]+\))$")
+            old_art_matcher = re.compile('(^[^:]+):\s+(RGB\([^)]+\)), (Transparency\([^)]+\)), (Permanence\([^)]+\))$')
+            if old_model_matcher.match(lines[2]):
                 # Old format
                 # TODO: remove support for old paint series format
                 colours = []
                 for line in lines[2:]:
-                    match = matcher.match(line)
+                    match = old_model_matcher.match(line)
                     if not match:
                         raise cls.ParseError(_("Badly formed definition: {0}.").format(line))
                     # Old data files were wx and hence 8 bits per channel
                     # so we need to convert them to 16 bist per channel
                     rgb = [channel << 8 for channel in eval(match.group(2))]
                     series.add_paint(ModelPaint(match.group(1), rgb, eval(match.group(3)), eval(match.group(4))))
-            elif NC_MATCHER.match(lines[2]):
+            elif old_art_matcher.match(lines[2]):
+                # Old format
+                # TODO: remove support for old paint series format
                 colours = []
                 for line in lines[2:]:
-                    match = NC_MATCHER.match(line)
+                    match = old_art_matcher.match(line)
+                    if not match:
+                        raise cls.ParseError(_("Badly formed definition: {0}.").format(line))
+                    # Old data files were wx and hence 8 bits per channel
+                    # so we need to convert them to 16 bist per channel
+                    rgb = [channel << 8 for channel in eval(match.group(2))]
+                    series.add_paint(ArtPaint(match.group(1), rgb, eval(match.group(3)), eval(match.group(4))))
+            elif MODEL_NC_MATCHER.match(lines[2]):
+                colours = []
+                for line in lines[2:]:
+                    match = MODEL_NC_MATCHER.match(line)
                     if not match:
                         raise cls.ParseError(_("Badly formed definition: {0}.").format(line))
                     name = eval(match.group(1))
                     rgb = eval(match.group(2))
                     series.add_paint(ModelPaint(name, rgb, transparency=match.group(3), finish=match.group(4)))
+            elif ART_NC_MATCHER.match(lines[2]):
+                colours = []
+                for line in lines[2:]:
+                    match = ART_NC_MATCHER.match(line)
+                    if not match:
+                        raise cls.ParseError(_("Badly formed definition: {0}.").format(line))
+                    name = eval(match.group(1))
+                    rgb = eval(match.group(2))
+                    series.add_paint(ModelPaint(name, rgb, transparency=match.group(3), permanence=match.group(4)))
             else:
                 for line in lines[2:]:
                     try:
@@ -320,6 +358,12 @@ class ModelMixture(Mixture):
 
 class MixedModelPaint(MixedPaint):
     MIXTURE = ModelMixture
+
+class ArtMixture(Mixture):
+    PAINT = ArtPaint
+
+class MixedArtPaint(MixedPaint):
+    MIXTURE = ArtMixture
 
 if __name__ == "__main__":
     doctest.testmod()
