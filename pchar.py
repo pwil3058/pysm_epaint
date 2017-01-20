@@ -114,6 +114,7 @@ class Permanence(MappedFloat):
 
 
 class PermanenceChoice(MappedFloatChoice):
+    PROMPT_TEXT = _("Permanence:")
     MFDC = Permanence
 
 
@@ -127,6 +128,7 @@ class Finish(MappedFloat):
 
 
 class FinishChoice(MappedFloatChoice):
+    PROMPT_TEXT = _("Finish:")
     MFDC = Finish
 
 
@@ -144,6 +146,7 @@ class Transparency(MappedFloat):
 
 
 class TransparencyChoice(MappedFloatChoice):
+    PROMPT_TEXT = _("Transparency:")
     MFDC = Transparency
 
 CHARACTERISTIC_CHOOSERS = {
@@ -151,6 +154,9 @@ CHARACTERISTIC_CHOOSERS = {
     "finish" : FinishChoice,
     "transparency" : TransparencyChoice
 }
+
+def cell_column_header(characteristic, length=1):
+    return "{}.".format(CHARACTERISTIC_CHOOSERS[characteristic].PROMPT_TEXT[0:length])
 
 class Characteristics:
     NAMES = list()
@@ -182,3 +188,31 @@ class Characteristics:
         for name in self.NAMES:
             self.__dict__[name] /= divisor
         return self
+    def __neq__(self, other):
+        for name in self.NAMES:
+            if getattr(self, name) != getattr(other, name):
+                return True
+        return False
+    def __eq__(self, other):
+        for name in self.NAMES:
+            if getattr(self, name) != getattr(other, name):
+                return False
+        return True
+    def get_kwargs(self):
+        return { name : str(getattr(self, name)) for name in self.NAMES}
+
+class Choosers(collections.OrderedDict):
+    def __init__(self, names):
+        items = ((name, CHARACTERISTIC_CHOOSERS[name]()) for name in names)
+        collections.OrderedDict.__init__(self, items)
+    def set_selections(self, **kwargs):
+        for key, value in kwargs.items():
+            self[key].set_selection(value)
+    def get_kwargs(self):
+        return { key : str(value.get_selection()) for key, value in self.items()}
+    @property
+    def all_active(self):
+        for chooser in self.values():
+            if chooser.get_active() == -1:
+                return False
+        return True

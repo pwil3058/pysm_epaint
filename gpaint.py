@@ -469,7 +469,7 @@ class ChromaDisplay(ValueDisplay):
 
 
 class WarmthDisplay(ValueDisplay):
-    LABEL = _('Warmth')
+    LABEL = _("Warmth")
     def __init__(self, colour=None, size=(100, 15)):
         GenericAttrDisplay.__init__(self, colour=colour, size=size)
         self.start_colour = paint.CYAN
@@ -534,15 +534,15 @@ class HueWheelNotebook(Gtk.Notebook):
     def set_wheels_colour_info_acb(self, callback):
         self.hue_chroma_wheel.set_colour_info_acb(callback)
         self.hue_value_wheel.set_colour_info_acb(callback)
-    def set_wheels_add_colour_acb(self, callback):
-        self.hue_chroma_wheel.set_add_colour_acb(callback)
-        self.hue_value_wheel.set_add_colour_acb(callback)
-    def add_colour(self, new_colour):
-        self.hue_chroma_wheel.add_colour(new_colour)
-        self.hue_value_wheel.add_colour(new_colour)
-    def del_colour(self, colour):
-        self.hue_chroma_wheel.del_colour(colour)
-        self.hue_value_wheel.del_colour(colour)
+    def set_wheels_add_paint_acb(self, callback):
+        self.hue_chroma_wheel.set_add_paint_acb(callback)
+        self.hue_value_wheel.set_add_paint_acb(callback)
+    def add_paint(self, new_colour):
+        self.hue_chroma_wheel.add_paint(new_colour)
+        self.hue_value_wheel.add_paint(new_colour)
+    def del_paint(self, colour):
+        self.hue_chroma_wheel.del_paint(colour)
+        self.hue_value_wheel.del_paint(colour)
     def add_target_colour(self, name, target_colour):
         self.hue_chroma_wheel.add_target_colour(name, target_colour)
         self.hue_value_wheel.add_target_colour(name, target_colour)
@@ -563,7 +563,7 @@ class ColourWheel(Gtk.DrawingArea, actions.CAGandUIManager):
                 <menuitem action="colour_info"/>
             </popup>
             <popup name="colour_wheel_AI_popup">
-                <menuitem action="add_colour"/>
+                <menuitem action="add_paint"/>
                 <menuitem action="colour_info"/>
             </popup>
         </ui>
@@ -609,7 +609,7 @@ class ColourWheel(Gtk.DrawingArea, actions.CAGandUIManager):
             ("colour_info", Gtk.STOCK_INFO, None, None,
              _("Detailed information for this colour."),
             ),
-            ("add_colour", Gtk.STOCK_ADD, None, None,
+            ("add_paint", Gtk.STOCK_ADD, None, None,
              _("Add this colour to the mixer."),
             ),
         ])
@@ -628,10 +628,10 @@ class ColourWheel(Gtk.DrawingArea, actions.CAGandUIManager):
     def set_colour_info_acb(self, callback):
         self.action_groups.disconnect_action("colour_info", self.__ci_acbid)
         self.__ci_acbid = self.action_groups.connect_activate("colour_info", callback, self)
-    def set_add_colour_acb(self, callback):
+    def set_add_paint_acb(self, callback):
         if self.__ac_acbid is not None:
-            self.action_groups.disconnect_action("add_colour", self.__ac_acbid)
-        self.__ac_acbid = self.action_groups.connect_activate("add_colour", callback, self)
+            self.action_groups.disconnect_action("add_paint", self.__ac_acbid)
+        self.__ac_acbid = self.action_groups.connect_activate("add_paint", callback, self)
     def polar_to_cartesian(self, radius, angle):
         if options.get("colour_wheel", "red_to_yellow_clockwise"):
             x = -radius * math.cos(angle)
@@ -669,23 +669,27 @@ class ColourWheel(Gtk.DrawingArea, actions.CAGandUIManager):
                 self.queue_draw()
             return True
         return False
-    def add_colour(self, new_colour):
+    def add_paint(self, new_colour):
         if hasattr(new_colour, "blobs"):
-            self.mixed_colours[new_colour] = self.ColourCircle(self, new_colour)
+            self.mixed_colours[new_colour.name] = self.ColourCircle(self, new_colour)
+        elif hasattr(new_colour, "id"):
+            self.paint_colours[new_colour.id] = self.ColourSquare(self, new_colour)
         else:
-            self.paint_colours[new_colour] = self.ColourSquare(self, new_colour)
+            self.paint_colours[new_colour.name] = self.ColourSquare(self, new_colour)
         # The data has changed so do a redraw
         self.queue_draw()
-    def del_colour(self, colour):
+    def del_paint(self, colour):
         if hasattr(colour, "blobs"):
-            self.mixed_colours.pop(colour)
+            self.mixed_colours.pop(colour.name)
+        elif hasattr(colour, "id"):
+            self.paint_colours.pop(colour.id)
         else:
-            self.paint_colours.pop(colour)
+            self.paint_colours.pop(colour.name)
         # The data has changed so do a redraw
         self.queue_draw()
     def add_target_colour(self, name, target_colour):
         dname = _("{0}: Target").format(name)
-        self.target_colours[name] = self.ColourDiamond(self, paint.NamedColour(dname, target_colour))
+        self.target_colours[name] = self.ColourDiamond(self, target_colour)
         # The data has changed so do a redraw
         self.queue_draw()
     def del_target_colour(self, name):
@@ -890,26 +894,32 @@ class PaintListStore(Gtk.ListStore):
         return None
 GObject.signal_new("paint_removed", PaintListStore, GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_PYOBJECT,))
 
-def model_paint_cell_data_func(column, cell, model, model_iter, attribute):
+def paint_cell_data_func(column, cell, model, model_iter, attribute):
     paint = model[model_iter][0]
     if attribute == "name":
         cell.set_property("text", paint.name)
         cell.set_property("background-gdk", paint.to_gdk_color())
         cell.set_property("foreground-gdk", paint.best_foreground_gdk_color())
+    elif attribute == "hue":
+        cell.set_property("background-gdk", paint.hue_rgb.to_gdk_color())
+    elif attribute == "chroma":
+        cell.set_property("text", str(float(round(paint.chroma, 2))))
+        cell.set_property("background-gdk", paint.rgb.to_gdk_color())
+        cell.set_property("foreground-gdk", paint.rgb.best_foreground_gdk_color())
     elif attribute == "value":
         cell.set_property("text", str(float(round(paint.value, 2))))
         cell.set_property("background-gdk", paint.value_rgb.to_gdk_color())
         cell.set_property("foreground-gdk", paint.value_rgb.best_foreground_gdk_color())
-    elif attribute == "hue":
-        cell.set_property("background-gdk", paint.hue_rgb.to_gdk_color())
-    elif attribute == "finish":
-        cell.set_property("text", str(paint.finish))
-    elif attribute == "transparency":
-        cell.set_property("text", str(paint.transparency))
+    elif attribute == "warmth":
+        cell.set_property("text", str(float(round(paint.warmth, 2))))
+        cell.set_property("background-gdk", paint.warmth_rgb.to_gdk_color())
+        cell.set_property("foreground-gdk", paint.warmth_rgb.best_foreground_gdk_color())
+    else: # handle characteristics generically
+        cell.set_property("text", str(getattr(paint, attribute)))
 
 TNS = collections.namedtuple("TNS", ["title", "attr", "properties", "sort_key_function"])
 
-def model_paint_column_spec(tns):
+def tns_paint_list_column_spec(tns):
     return tlview.ColumnSpec(
         title=tns.title,
         properties=tns.properties,
@@ -923,7 +933,7 @@ def model_paint_column_spec(tns):
                     start=False
                 ),
                 cell_data_function_spec=tlview.CellDataFunctionSpec(
-                    function=model_paint_cell_data_func,
+                    function=paint_cell_data_func,
                     user_data=tns.attr
                 ),
                 attributes={}
@@ -931,42 +941,23 @@ def model_paint_column_spec(tns):
         ],
     )
 
-def model_paint_column_specs(model):
+def paint_list_column_specs(model):
     """Generate the column specitications for colour attributes
     """
-    return [model_paint_column_spec(tns) for tns in model.COLUMN_DEFS]
+    return [tns_paint_list_column_spec(tns) for tns in model.COLUMN_DEFS]
 
-class ModelPaintListStore(PaintListStore):
-    COLUMN_DEFS = [
-        TNS(_("Colour Name"), "name", {"resizable" : True, "expand" : True}, lambda row: row[0].name),
-        TNS(_("Value"), "value", {}, lambda row: row[0].value),
-        TNS(_("Hue"), "hue", {}, lambda row: row[0].hue),
-        TNS(_("T."), "transparency", {}, lambda row: row[0].transparency),
-        TNS(_("F."), "finish", {}, lambda row: row[0].finish),
-    ]
-
-class ArtPaintListStore(PaintListStore):
-    COLUMN_DEFS = [
-        TNS(_("Colour Name"), "name", {"resizable" : True, "expand" : True}, lambda row: row[0].name),
-        TNS(_("Value"), "value", {}, lambda row: row[0].value),
-        TNS(_("Hue"), "hue", {}, lambda row: row[0].hue),
-        TNS(_("Warmth"), "warmth", {}, lambda row: row[0].warmth),
-        TNS(_("T."), "transparency", {}, lambda row: row[0].transparency),
-        TNS(_("P."), "permanence", {}, lambda row: row[0].permanence),
-    ]
-
-def model_paint_list_spec(view, model):
+def generate_paint_list_spec(view, model):
     """Generate the specification for a paint colour list
     """
     return tlview.ViewSpec(
         properties={},
         selection_mode=Gtk.SelectionMode.MULTIPLE,
-        columns=model_paint_column_specs(model)
+        columns=paint_list_column_specs(model)
     )
 
-class ModelPaintListView(tlview.View, actions.CAGandUIManager, dialogue.AskerMixin):
-    MODEL = ModelPaintListStore
-    SPECIFICATION = model_paint_list_spec
+class PaintListView(tlview.View, actions.CAGandUIManager, dialogue.AskerMixin):
+    MODEL = PaintListStore
+    SPECIFICATION = generate_paint_list_spec
     UI_DESCR = """
     <ui>
         <popup name="paint_list_popup">
@@ -1006,8 +997,74 @@ class ModelPaintListView(tlview.View, actions.CAGandUIManager, dialogue.AskerMix
         model, paths = self.get_selection().get_selected_rows()
         return [model[p][0] for p in paths]
 
+def paint_characteristics_tns_list(paint):
+    names = paint.CHARACTERISTICS.NAMES
+    return [TNS(pchar.cell_column_header(name), name, {}, lambda row: getattr(row[index], name)) for name in names]
+
+
+class ModelPaintListStore(PaintListStore):
+    COLUMN_DEFS = [
+        TNS(_("Colour Name"), "name", {"resizable" : True, "expand" : True}, lambda row: row[0].name),
+        TNS(_("Value"), "value", {}, lambda row: row[0].value),
+        TNS(_("Hue"), "hue", {}, lambda row: row[0].hue),
+    ] + paint_characteristics_tns_list(paint.ModelPaint)
+
+class ArtPaintListStore(PaintListStore):
+    COLUMN_DEFS = [
+        TNS(_("Colour Name"), "name", {"resizable" : True, "expand" : True}, lambda row: row[0].name),
+        TNS(_("Value"), "value", {}, lambda row: row[0].value),
+        TNS(_("Hue"), "hue", {}, lambda row: row[0].hue),
+        TNS(_("Warmth"), "warmth", {}, lambda row: row[0].warmth),
+    ] + paint_characteristics_tns_list(paint.ArtPaint)
+
+class ModelPaintListView(PaintListView):
+    MODEL = ModelPaintListStore
+
 class ArtPaintListView(ModelPaintListView):
     MODEL = ArtPaintListStore
+
+class PaintListNotebook(HueWheelNotebook):
+    PAINT_LIST_VIEW = PaintListView
+    def __init__(self):
+        HueWheelNotebook.__init__(self)
+        self.paint_list = self.PAINT_LIST_VIEW()
+        self.append_page(gutils.wrap_in_scrolled_window(self.paint_list), Gtk.Label(label=_("Paint List")))
+        self.paint_list.get_model().connect("paint_removed", self._paint_removed_cb)
+    def __len__(self):
+        """
+        Return the number of colours currently held
+        """
+        return len(self.paint_list.model)
+    def _paint_removed_cb(self, model, paint):
+        """
+        Delete paint deleted from the list from the wheels also.
+        """
+        HueWheelNotebook.del_paint(self, paint)
+    def add_paint(self, new_paint):
+        HueWheelNotebook.add_paint(self, new_paint)
+        self.paint_list.get_model().append_paint(new_paint)
+    def remove_paint(self, paint):
+        # "paint_removed" callback will get the wheels
+        self.paint_list.get_model().remove_paint(paint)
+    def clear(self):
+        """
+        Remove all paints from the notebook
+        """
+        for paint in self.paint_list.get_model().get_paints():
+            HueWheelNotebook.del_paint(self, paint)
+        self.paint_list.get_model().clear()
+    def get_paint_with_name(self, paint_name):
+        """
+        Return the paint with the given name of None if not found
+        """
+        return self.paint_list.get_model().get_paint_with_name(paint_name)
+    def get_paints(self):
+        """
+        Return all paints as a list in the current order
+        """
+        return self.paint_list.get_model().get_paints()
+    def iter_paints(self):
+        return (paint for paint in self.paint_list.get_model().get_paints())
 
 class RGBEntryBox(Gtk.HBox):
     def __init__(self, initial_colour=paint.BLACK):
@@ -1050,10 +1107,15 @@ class PaintColourInformationDialogue(dialogue.Dialog):
             self.set_default_size(*eval(last_size))
         vbox = self.get_content_area()
         vbox.pack_start(coloured.ColouredLabel(colour.name, colour.rgb), expand=False, fill=True, padding=0)
+        if hasattr(colour, "notes"):
+            vbox.pack_start(coloured.ColouredLabel(colour.series.notes, colour.rgb), expand=False, fill=True, padding=0)
         if hasattr(colour, "series"):
             vbox.pack_start(coloured.ColouredLabel(colour.series.series_id.name, colour.rgb), expand=False, fill=True, padding=0)
             vbox.pack_start(coloured.ColouredLabel(colour.series.series_id.maker, colour.rgb), expand=False, fill=True, padding=0)
-        vbox.pack_start(HCVDisplay(colour=colour), expand=False, fill=True, padding=0)
+        if hasattr(colour, "warmth"):
+            vbox.pack_start(HCVWDisplay(colour=colour), expand=False, fill=True, padding=0)
+        else:
+            vbox.pack_start(HCVDisplay(colour=colour), expand=False, fill=True, padding=0)
         if hasattr(colour, "characteristics"):
             for characteristic in colour.characteristics:
                 vbox.pack_start(Gtk.Label(characteristic.description()), expand=False, fill=True, padding=0)

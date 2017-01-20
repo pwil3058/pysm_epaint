@@ -64,7 +64,6 @@ class Hue(rgbh.Hue16):
 
 # The "ideal" palette is one that contains the full range at full strength
 IDEAL_RGB_COLOURS = [RGB.WHITE, RGB.MAGENTA, RGB.RED, RGB.YELLOW, RGB.GREEN, RGB.CYAN, RGB.BLUE, RGB.BLACK]
-IDEAl_COLOUR_NAMES = ["WHITE", "MAGENTA", "RED", "YELLOW", "GREEN", "CYAN", "BLUE", "BLACK"]
 
 class HCV:
     def __init__(self, rgb):
@@ -75,6 +74,8 @@ class HCV:
         self.chroma = xy.get_hypot() * self.hue.chroma_correction / RGB.ONE
     def __getattr__(self, attr_name):
         return getattr(self.rgb, attr_name)
+    def __getitem__(self, index):
+        return self.rgb[index]
     @property
     def hue_rgb(self):
         return RGB(*self.hue.rgb)
@@ -143,20 +144,10 @@ class HCVW(HCV):
         string += "CHROMA = {0}, ".format(round(self.chroma, 2))
         string += "WARMTH = {0})".format(round(self.warmth, 2))
         return string
-
-class NamedColour(collections.namedtuple("NamedColour", ["name", "colour"])):
-    def __getattr__(self, attr_name):
-        return getattr(self.colour, attr_name)
-    def __repr__(self):
-        fmt_str = "NamedColour(name=\"{0}\", colour={1})"
-        return fmt_str.format(re.sub('"', r'\"', self.name), repr(self.colour))
-    def __str__(self):
-        return self.name
-    def __len__(self):
         return len(self.name)
 
 
-WHITE, MAGENTA, RED, YELLOW, GREEN, CYAN, BLUE, BLACK = [NamedColour(name, HCVW(rgb)) for name, rgb in zip(IDEAl_COLOUR_NAMES, IDEAL_RGB_COLOURS)]
+WHITE, MAGENTA, RED, YELLOW, GREEN, CYAN, BLUE, BLACK = [HCVW(rgb) for rgb in IDEAL_RGB_COLOURS]
 IDEAL_COLOURS = [WHITE, MAGENTA, RED, YELLOW, GREEN, CYAN, BLUE, BLACK]
 
 class Paint:
@@ -175,30 +166,40 @@ class Paint:
         self.colour = self.COLOUR(rgb)
     def set_characteristic(self, c_name, c_value):
         setattr(self.characteristics, c_name, c_value)
+    def __ne__(self, other):
+        if self.name != other.name:
+            return True
+        elif self.colour.rgb != other.colour.rgb:
+            return True
+        else:
+            return self.characteristics != other.characteristics
+    def __repr__(self):
+        fmt_str = self.__class__.__name__ + "(name=\"{0}\", rgb={1}{2})"
+        ename = re.sub('"', r'\"', self.name)
+        ergb = repr(self.colour.rgb)
+        echaracteristics = ""
+        for name in self.CHARACTERISTICS.NAMES:
+            value = getattr(self.characteristics, name)
+            echaracteristics += ", {0}=\"{1}\"".format(name, str(value))
+        return fmt_str.format(ename, ergb, echaracteristics)
 
-class ModelPaintCharacteristics(pchar.Characteristics):
-    NAMES = ("transparency", "finish")
 
 class ModelPaint(Paint):
     COLOUR = HCV
-    CHARACTERISTICS = ModelPaintCharacteristics
-    def __repr__(self):
-        fmt_str = "ModelPaint(name=\"{0}\", rgb={1}, transparency=\"{2}\", finish=\"{3}\")"
-        return fmt_str.format(re.sub('"', r'\"', self.name), self.rgb, self.transparency, self.finish)
-
-class ArtPaintCharacteristics(pchar.Characteristics):
-    NAMES = ("transparency", "permanence")
+    class CHARACTERISTICS(pchar.Characteristics):
+        NAMES = ("transparency", "finish")
 
 class ArtPaint(Paint):
     COLOUR = HCVW
-    CHARACTERISTICS = ArtPaintCharacteristics
-    def __repr__(self):
-        fmt_str = "ModelPaint(name=\"{0}\", rgb={1}, transparency=\"{2}\", permanence=\"{3}\")"
-        return fmt_str.format(re.sub('"', r'\"', self.name), self.rgb, self.transparency, self.permanence)
+    class CHARACTERISTICS(pchar.Characteristics):
+        NAMES = ("transparency", "permanence")
 
 SERIES_ID = collections.namedtuple("SERIES_ID", ["maker", "name"])
 
 class SeriesPaint(collections.namedtuple("SeriesPaint", ["series", "paint"])):
+    @property
+    def id(self):
+        return (self.series, self.paint.name)
     def __getattr__(self, attr_name):
         return getattr(self.paint, attr_name)
     def __str__(self):
