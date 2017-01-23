@@ -384,7 +384,7 @@ class ModelPaintEditor(PaintEditor):
     PAINT = paint.ModelPaint
 
 
-class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMixin):
+class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMixin, dialogue.AskerMixin):
     PAINT_EDITOR = None
     PAINT_LIST_NOTEBOOK = None
     UI_DESCR = """
@@ -620,14 +620,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         self.paint_editor.set_paint(colour.name, colour.rgb, **colour.characteristics.get_kwargs())
         self.set_current_colour(colour)
     def _ask_overwrite_ok(self, name):
-        title = _("Duplicate Colour Name")
-        msg = _("A colour with the name \"{0}\" already exists.\n Overwrite?").format(name)
-        dlg = dialogue.CancelOKDialog(title=title, parent=self.get_toplevel())
-        dlg.get_content_area().pack_start(Gtk.Label(msg), expand=True, fill=True, padding=0)
-        dlg.show_all()
-        response = dlg.run()
-        dlg.destroy()
-        return response == Gtk.ResponseType.OK
+        return self.ask_ok_cancel(_("A colour with the name \"{0}\" already exists.\n Overwrite?").format(name))
     def _accept_colour_changes_cb(self, _widget=None):
         edited_colour = self.paint_editor.get_paint()
         if edited_colour.name != self.current_colour.name:
@@ -678,9 +671,8 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         self.paint_editor.auto_match_sample(raw=True)
     def load_fm_file(self, filepath):
         try:
-            fobj = open(filepath, "r")
-            text = fobj.read()
-            fobj.close()
+            with open(filepath, "r") as fobj:
+                text = fobj.read()
         except IOError as edata:
             return self.report_io_error(edata)
         try:
@@ -698,31 +690,21 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         self.series_name.set_text(series.series_id.name)
         self.set_file_path(filepath)
         self.saved_hash = hashlib.sha1(text.encode()).digest()
+        assert hashlib.sha1(self.get_definition_text().encode()).digest() == self.saved_hash
     def _open_paint_series_file_cb(self, _action):
         """
         Ask the user for the name of the file then open it.
         """
         if not self.unsaved_changes_ok():
             return
-        parent = self.get_toplevel()
-        dlg = Gtk.FileChooserDialog(
-            title=_("Load Paint Series Description"),
-            parent=parent if isinstance(parent, Gtk.Window) else None,
-            action=Gtk.FileChooserAction.OPEN,
-            buttons=(Gtk.STOCK_CANCEL,Gtk.ResponseType.CANCEL,Gtk.STOCK_OPEN,Gtk.ResponseType.OK)
-        )
         if self.file_path:
-            lastdir = os.path.dirname(self.file_path)
-            dlg.set_current_folder(lastdir)
+            lastdir = os.path.dirname(self.file_path) + os.sep
         else:
             last_file = recollect.get("editor", "last_file")
-            if last_file:
-                lastdir = os.path.dirname(last_file)
-                dlg.set_current_folder(lastdir)
-        if dlg.run() == Gtk.ResponseType.OK:
-            filepath = dlg.get_filename()
-            self.load_fm_file(filepath)
-        dlg.destroy()
+            lastdir = os.path.dirname(last_file) + os.sep if last_file else None
+        file_path = self.ask_file_path(_("Paint Series Description File:"), suggestion=lastdir, existing=True)
+        if file_path:
+            self.load_fm_file(file_path)
     def _open_sample_viewer_cb(self, _action):
         """
         Launch a window containing a sample viewer
@@ -741,14 +723,13 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
             filepath = self.file_path
         definition = self.get_definition_text()
         try:
-            fobj = open(filepath, "w")
-            fobj.write(definition)
-            fobj.close()
-            # save was successful so set our filepath
-            self.set_file_path(filepath)
-            self.saved_hash = hashlib.sha1(definition.encode()).digest()
+            with open(filepath, "w") as fobj:
+                fobj.write(definition)
         except IOError as edata:
             return self.report_io_error(edata)
+        # save was successful so set our filepath
+        self.set_file_path(filepath)
+        self.saved_hash = hashlib.sha1(definition.encode()).digest()
     def _save_paint_series_to_file_cb(self, _action):
         """
         Save the paint series to the current file
@@ -758,26 +739,15 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         """
         Ask the user for the name of the file then open it.
         """
-        parent = self.get_toplevel()
-        dlg = Gtk.FileChooserDialog(
-            title="Save Paint Series Description",
-            parent=parent if isinstance(parent, Gtk.Window) else None,
-            action=Gtk.FileChooserAction.SAVE,
-            buttons=(Gtk.STOCK_CANCEL,Gtk.ResponseType.CANCEL,Gtk.STOCK_OPEN,Gtk.ResponseType.OK)
-        )
-        dlg.set_do_overwrite_confirmation(True)
         if self.file_path:
-            lastdir = os.path.dirname(self.file_path)
-            dlg.set_current_folder(lastdir)
+            lastdir = os.path.dirname(self.file_path) + os.sep
         else:
             last_file = recollect.get("editor", "last_file")
-            if last_file:
-                lastdir = os.path.dirname(last_file)
-                dlg.set_current_folder(lastdir)
-        if dlg.run() == Gtk.ResponseType.OK:
-            filepath = dlg.get_filename()
-            self.save_to_file(filepath)
-        dlg.destroy()
+            lastdir = os.path.dirname(last_file) if last_file else None
+        file_path = self.ask_file_path(_("Paint Series Description File:"), suggestion=lastdir, existing=False)
+        if file_path:
+            if not os.path.exists(file_path) or self.ask_yes_no(_("{}: already exists. Overwrite?").format(file_path)):
+                self.save_to_file(file_path)
     def _close_colour_editor_cb(self, _action):
         """
         Close the Paint Series Editor
