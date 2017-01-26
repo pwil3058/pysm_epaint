@@ -44,7 +44,7 @@ class MappedFloat:
                 try:
                     self.val = float(ival)
                 except ValueError:
-                    raise self.BadValue(_("Unrecognized characteristic value: {0}").format(ival))
+                    raise BadMappedFloatValue(_("Unrecognized characteristic value: {0}").format(ival))
         else: # assume it's a real value in the mapped range
             self.val = ival
     def __str__(self):
@@ -52,7 +52,7 @@ class MappedFloat:
         for mapi in self.MAP:
             if rval == mapi.rval:
                 return mapi.abbrev
-        raise  self.BadValue(_("Invalid characteristic: {0}").format(self.val))
+        raise  BadMappedFloatValue(_("Invalid characteristic: {0}").format(self.val))
     def __repr__(self):
         return "{0}({1})".format(self.__class__.__name__, self.val)
     def description(self):
@@ -60,7 +60,7 @@ class MappedFloat:
         for mapi in self.MAP:
             if rval == mapi.rval:
                 return mapi.descr
-        raise  self.BadValue(_("Invalid characteristic: {0}").format(self.val))
+        raise  BadMappedFloatValue(_("Invalid characteristic: {0}").format(self.val))
     # Enough operators to facilitate weighted averaging
     def __mul__(self, multiplier):
         return self.__class__(self.val * multiplier)
@@ -101,7 +101,7 @@ class MappedFloatChoice(Gtk.ComboBoxText):
             if abbrev == characteristic.abbrev:
                 self.set_active(index if index is not None else -1)
                 return
-        raise paint.MappedFloat.BadValue()
+        raise BadMappedFloatValue(_("Invalid characteristic: {0}").format(mapped_float))
 
 
 class Permanence(MappedFloat):

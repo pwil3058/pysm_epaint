@@ -22,6 +22,7 @@ import hashlib
 import math
 import os
 
+from gi.repository import Gdk
 from gi.repository import GObject
 from gi.repository import Gtk
 
@@ -33,10 +34,11 @@ from ..gtx import coloured
 from ..gtx import dialogue
 from ..gtx import entries
 from ..gtx import recollect
+from ..gtx import screen
 
 from . import gpaint
 from . import lexicon
-from . import paint
+from . import vpaint
 from . import pchar
 from . import rgbh
 
@@ -91,7 +93,7 @@ class ColourSampleMatcher(Gtk.VBox):
     COLOUR = None
     HUE_DISPLAY_SPAN =  math.pi / 10
     VALUE_DISPLAY_INCR = fractions.Fraction(1, 10)
-    DEFAULT_COLOUR = lambda self: self.COLOUR(paint.RGB.WHITE / 2)
+    DEFAULT_COLOUR = lambda self: self.COLOUR(self.COLOUR.RGB.WHITE / 2)
     DELTA_HUE = [mathx.Angle(math.pi / x) for x in [200, 100, 50]]
     DELTA_VALUE = [0.0025, 0.005, 0.01]
     DELTA_CHROMA = [0.0025, 0.005, 0.01]
@@ -106,7 +108,7 @@ class ColourSampleMatcher(Gtk.VBox):
                 new_colour = colour.get_rotated_rgb(ColourSampleMatcher.HUE_DISPLAY_SPAN)
             else:
                 new_colour = colour.get_rotated_rgb(-ColourSampleMatcher.HUE_DISPLAY_SPAN)
-            coloured.ColouredButton.set_colour(self, new_colour)
+            coloured.ColouredButton.set_colour(self, new_colour.gdk_color)
 
     class HueAntiClockwiseButton(coloured.ColouredButton):
         def __init__(self):
@@ -116,33 +118,33 @@ class ColourSampleMatcher(Gtk.VBox):
                 new_colour = colour.get_rotated_rgb(-ColourSampleMatcher.HUE_DISPLAY_SPAN)
             else:
                 new_colour = colour.get_rotated_rgb(ColourSampleMatcher.HUE_DISPLAY_SPAN)
-            coloured.ColouredButton.set_colour(self, new_colour)
+            coloured.ColouredButton.set_colour(self, new_colour.gdk_color)
 
     class IncrValueButton(coloured.ColouredButton):
         def __init__(self):
             coloured.ColouredButton.__init__(self, label=_("Value")+"++")
         def set_colour(self, colour):
             value = min(colour.value + ColourSampleMatcher.VALUE_DISPLAY_INCR, fractions.Fraction(1))
-            coloured.ColouredButton.set_colour(self, colour.hue_rgb_for_value(value))
+            coloured.ColouredButton.set_colour(self, colour.hue_rgb_for_value(value).gdk_color)
 
     class DecrValueButton(coloured.ColouredButton):
         def __init__(self):
             coloured.ColouredButton.__init__(self, label=_("Value")+"--")
         def set_colour(self, colour):
             value = max(colour.value - ColourSampleMatcher.VALUE_DISPLAY_INCR, fractions.Fraction(0))
-            coloured.ColouredButton.set_colour(self, colour.hue_rgb_for_value(value))
+            coloured.ColouredButton.set_colour(self, colour.hue_rgb_for_value(value).gdk_color)
 
     class IncrGraynessButton(coloured.ColouredButton):
         def __init__(self):
             coloured.ColouredButton.__init__(self, label=_("Grayness") + "++")
         def set_colour(self, colour):
-            coloured.ColouredButton.set_colour(self, colour.value_rgb)
+            coloured.ColouredButton.set_colour(self, colour.value_rgb.gdk_color)
 
     class DecrGraynessButton(coloured.ColouredButton):
         def __init__(self):
             coloured.ColouredButton.__init__(self, label=_("Grayness") + "--")
         def set_colour(self, colour):
-            coloured.ColouredButton.set_colour(self, colour.hue_rgb_for_value())
+            coloured.ColouredButton.set_colour(self, colour.hue_rgb_for_value().gdk_color)
 
     def __init__(self, auto_match_on_paste=False):
         Gtk.VBox.__init__(self)
@@ -206,7 +208,7 @@ class ColourSampleMatcher(Gtk.VBox):
         self._set_colour(colour)
 
     def _set_colour_fm_manipulator(self):
-        self._set_colour(self.COLOUR(self.rgb_manipulator.get_rgb(paint.RGB)))
+        self._set_colour(self.COLOUR(self.rgb_manipulator.get_rgb()))
 
     def _set_colour(self, colour):
         self.colour = colour
@@ -238,7 +240,7 @@ class ColourSampleMatcher(Gtk.VBox):
                     for i in range(3):
                         total[i] += data[offset + i]
             npixels += width * n_rows
-        rgb = paint.RGB(*(paint.RGB.ROUND((total[i] << 8) / npixels) for i in range(3)))
+        rgb = self.COLOUR.RGB(*(self.COLOUR.RGB.ROUND((total[i] << 8) / npixels) for i in range(3)))
         if raw:
             self.set_colour(rgb)
         else:
@@ -381,7 +383,7 @@ class PaintEditor(Gtk.VBox):
 GObject.signal_new("changed", PaintEditor, GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_PYOBJECT,))
 
 class ModelPaintEditor(PaintEditor):
-    PAINT = paint.ModelPaint
+    PAINT = vpaint.ModelPaint
 
 
 class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMixin, dialogue.AskerMixin):
@@ -600,7 +602,8 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
                 dlg.destroy()
                 return response == UnaddedNewColourDialogue.DISCARD_AND_CONTINUE
         else:
-            if self.current_colour != self.paint_editor.get_paint():
+            edit_colour = self.paint_editor.get_paint()
+            if self.current_colour != edit_colour:
                 parent = self.get_toplevel()
                 msg = _("Colour \"{0}\" has changes that have not been accepted.").format(edit_colour.name)
                 dlg = UnacceptedChangesDialogue(parent=parent if isinstance(parent, Gtk.Window) else None,message=msg)
@@ -631,10 +634,14 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
                     self.paint_colours.remove_paint(other_colour)
                 else:
                     return
-        self.current_colour.name = edited_colour.name
-        self.current_colour.set_rgb(edited_colour.rgb)
-        for name, value in edited_colour.get_kwargs():
-            self.current_colour.set_characteristic(name, value)
+            # and do a full replace in paint_colours as the wheels
+            # use dictionaries indexed by name
+            self.paint_colours.remove_paint(self.current_colour)
+            self.paint_colours.add_paint(edited_colour)
+            self.current_colour = edited_colour
+        else:
+            self.current_colour.set_rgb(edited_colour.rgb)
+            self.current_colour.set_characteristics(**edited_colour.characteristics.get_kwargs())
         self.paint_colours.queue_draw()
     def _reset_colour_editor_cb(self, _widget):
         if self.colour_edit_state_ok():
@@ -660,8 +667,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
             if not self._ask_overwrite_ok(new_colour.name):
                 return
             old_colour.set_rgb(new_colour.rgb)
-            for name, value in new_colour.get_kwargs():
-                old_colour.set_characteristic(name, value)
+            old_colour.set_characteristics(**new_colour.characterisitcs.get_kwargs())
             self.paint_colours.queue_draw()
             self.set_current_colour(old_colour)
         else:
@@ -676,21 +682,20 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         except IOError as edata:
             return self.report_io_error(edata)
         try:
-            series = paint.PaintSeries.fm_definition(text)
-        except paint.PaintSeries.ParseError as edata:
+            series = vpaint.PaintSeries.fm_definition(text)
+        except vpaint.PaintSeries.ParseError as edata:
             return self.alert_user(_("Format Error:  {}: {}").format(edata, filepath))
         # All OK so clear the paint editor and ditch the current colours
         self.paint_editor.reset()
         self.set_current_colour(None)
         self.paint_colours.clear()
         # and load the new ones
-        for colour in series.paint_colours.values():
-            self.paint_colours.add_paint(colour)
+        for paint in series.iter_paints():
+            self.paint_colours.add_paint(paint)
         self.manufacturer_name.set_text(series.series_id.maker)
         self.series_name.set_text(series.series_id.name)
         self.set_file_path(filepath)
         self.saved_hash = hashlib.sha1(text.encode()).digest()
-        assert hashlib.sha1(self.get_definition_text().encode()).digest() == self.saved_hash
     def _open_paint_series_file_cb(self, _action):
         """
         Ask the user for the name of the file then open it.
@@ -716,7 +721,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         """
         maker = self.manufacturer_name.get_text()
         name = self.series_name.get_text()
-        series = paint.PaintSeries(maker=maker, name=name, paints=self.paint_colours.iter_paints())
+        series = vpaint.PaintSeries(maker=maker, name=name, paints=self.paint_colours.iter_paints())
         return series.definition_text()
     def save_to_file(self, filepath=None):
         if filepath is None:
