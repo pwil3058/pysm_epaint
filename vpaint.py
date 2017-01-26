@@ -172,7 +172,7 @@ class Paint:
 class ModelPaint(Paint):
     COLOUR = HCV
     class CHARACTERISTICS(pchar.Characteristics):
-        NAMES = ("transparency", "finish")
+        NAMES = ("transparency", "finish", "metallic", "fluorescence")
 
 class ArtPaint(Paint):
     COLOUR = HCVW
@@ -285,7 +285,7 @@ class PaintSeries:
                         raise cls.ParseError(_("Badly formed definition: {0}.").format(line))
                     name = eval(match.group(1))
                     rgb = eval(match.group(2))
-                    series.add_paint(ModelPaint(name, rgb, transparency=match.group(3), finish=match.group(4)))
+                    series.add_paint(ModelPaint(name, rgb, transparency=match.group(3), finish=match.group(4), metallic="NM", fluorescence="NF"))
             elif ART_NC_MATCHER.match(lines[2]):
                 RGB = ArtPaint.COLOUR.RGB
                 colours = []

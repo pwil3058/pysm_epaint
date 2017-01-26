@@ -149,10 +149,37 @@ class TransparencyChoice(MappedFloatChoice):
     PROMPT_TEXT = _("Transparency:")
     MFDC = Transparency
 
+
+class Fluorescence(MappedFloat):
+    MAP = (
+        CHARACTERISTIC("NF", _("Nonfluorescent"), 1.0),
+        CHARACTERISTIC("SN", _("Semi-nonfluorescent"), 1.0),
+        CHARACTERISTIC("SF", _("Semi-fluorescent"), 3.0),
+        CHARACTERISTIC("Fl", _("Fluorescent"), 4.0),
+    )
+
+class FluorescenceChoice(MappedFloatChoice):
+    PROMPT_TEXT = _("Fluorescence:")
+    MFDC = Fluorescence
+
+class Metallic(MappedFloat):
+    MAP = (
+        CHARACTERISTIC("NM", _("Non-mellatic"), 1.0),
+        CHARACTERISTIC("SN", _("Semi-nonf-mellatic"), 1.0),
+        CHARACTERISTIC("SM", _("Semi-mellatic"), 3.0),
+        CHARACTERISTIC("M", _("Mellatic"), 4.0),
+    )
+
+class MetallicChoice(MappedFloatChoice):
+    PROMPT_TEXT = _("Metallic:")
+    MFDC = Metallic
+
 CHARACTERISTIC_CHOOSERS = {
     "permanence" : PermanenceChoice,
     "finish" : FinishChoice,
-    "transparency" : TransparencyChoice
+    "transparency" : TransparencyChoice,
+    "fluorescence" : FluorescenceChoice,
+    "metallic" : MetallicChoice
 }
 
 def cell_column_header(characteristic, length=1):
