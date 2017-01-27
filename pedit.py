@@ -321,6 +321,7 @@ class ColourSampleMatcher(Gtk.VBox):
 class PaintEditor(Gtk.VBox):
     AC_READY, AC_NOT_READY, AC_MASK = actions.ActionCondns.new_flags_and_mask(2)
     COLOUR_NAME_LEXICON = lexicon.COLOUR_NAME_LEXICON
+    GENERAL_WORDS_LEXICON = lexicon.GENERAL_WORDS_LEXICON
     PAINT = None
     RESET_CHARACTERISTICS = True
 
@@ -335,12 +336,24 @@ class PaintEditor(Gtk.VBox):
         self.colour_name.connect("new-words", lexicon.new_paint_words_cb)
         self.colour_name.connect("changed", self._changed_cb)
         table.attach(self.colour_name, 1, 2, 0, 1)
+        next_row = 1
+        self.extra_entries = {}
+        for extra in self.PAINT.EXTRAS:
+            label = Gtk.Label(label=extra.prompt_text)
+            table.attach(label, 0, 1, next_row, next_row + 1, xoptions=0)
+            self.extra_entries[extra.name] = entries.TextEntryAutoComplete(self.GENERAL_WORDS_LEXICON)
+            self.extra_entries[extra.name].set_text(extra.default)
+            self.extra_entries[extra.name].connect("new-words", lexicon.new_general_words_cb)
+            self.extra_entries[extra.name].connect("changed", self._changed_cb)
+            table.attach(self.extra_entries[extra.name], 1, 2, next_row, next_row + 1)
+            next_row += 1
         self.c_choosers = pchar.Choosers(self.PAINT.CHARACTERISTICS.NAMES)
-        for first_row, chooser in enumerate(self.c_choosers.values(), 1):
+        for chooser in self.c_choosers.values():
             label = Gtk.Label(label=chooser.PROMPT_TEXT)
-            table.attach(label, 0, 1, first_row, first_row + 1, xoptions=0)
-            table.attach(chooser, 1, 2, first_row, first_row + 1)
+            table.attach(label, 0, 1, next_row, next_row + 1, xoptions=0)
+            table.attach(chooser, 1, 2, next_row, next_row + 1)
             chooser.connect("changed", self._changed_cb)
+            next_row += 1
         self.pack_start(table, expand=False, fill=True, padding=0)
         # Matcher
         class ColourMatcher(ColourSampleMatcher):
@@ -358,6 +371,8 @@ class PaintEditor(Gtk.VBox):
         self.colour_matcher.sample_display.erase_samples()
         self.colour_matcher.set_colour(None)
         self.colour_name.set_text("")
+        for extra in self.PAINT.EXTRAS:
+            self.extra_entries[extra.name].set_text(extra.default)
         if self.RESET_CHARACTERISTICS:
             for chooser in self.c_choosers.values():
                 chooser.set_active(-1)
@@ -365,12 +380,17 @@ class PaintEditor(Gtk.VBox):
     def get_paint(self):
         name = self.colour_name.get_text()
         rgb = self.colour_matcher.colour.rgb
-        return self.PAINT(name=name, rgb=rgb, **self.c_choosers.get_kwargs())
+        kwargs = self.c_choosers.get_kwargs()
+        for extra in self.PAINT.EXTRAS:
+            kwargs[extra.name] = self.extra_entries[extra.name].get_text()
+        return self.PAINT(name=name, rgb=rgb, **kwargs)
 
-    def set_paint(self, name, rgb, **kwargs):
-        self.colour_matcher.set_colour(rgb)
-        self.colour_name.set_text(name)
-        self.c_choosers.set_selections(**kwargs)
+    def set_paint(self, paint):
+        self.colour_matcher.set_colour(paint.rgb)
+        self.colour_name.set_text(paint.name)
+        for extra in self.PAINT.EXTRAS:
+            self.extra_entries[extra.name].set_text(getattr(paint, extra.name))
+        self.c_choosers.set_selections(**paint.characteristics.get_kwargs())
 
     def auto_match_sample(self, raw=False):
         self.colour_matcher.auto_match_sample(raw)
@@ -619,8 +639,8 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         """
         Load the selected paint colour into the editor
         """
-        colour = self.paint_colours.paint_list.get_selected_paints()[0]
-        self.paint_editor.set_paint(colour.name, colour.rgb, **colour.characteristics.get_kwargs())
+        paint = self.paint_colours.paint_list.get_selected_paints()[0]
+        self.paint_editor.set_paint(paint)
         self.set_current_colour(colour)
     def _ask_overwrite_ok(self, name):
         return self.ask_ok_cancel(_("A colour with the name \"{0}\" already exists.\n Overwrite?").format(name))

@@ -131,12 +131,16 @@ class HCVW(HCV):
 WHITE, MAGENTA, RED, YELLOW, GREEN, CYAN, BLUE, BLACK = [HCVW(rgb) for rgb in HCVW.IDEAL_RGB_COLOURS]
 IDEAL_COLOURS = [WHITE, MAGENTA, RED, YELLOW, GREEN, CYAN, BLUE, BLACK]
 
+EXTRA = collections.namedtuple("EXTRAS", ["name", "prompt_text", "default_value"])
+
 class Paint:
     COLOUR = None
     CHARACTERISTICS = None
+    EXTRAS = []
     def __init__(self, name, rgb, **kwargs):
         self.__name = name # NB: this is readonly so it can be used as dict() key
         self.colour = self.COLOUR(rgb)
+        self.__extras = {extra.name: kwargs.pop(extra.name, extra.default_value) for extra in self.EXTRAS}
         self.characteristics = self.CHARACTERISTICS(**kwargs)
     @property
     def name(self):
@@ -145,16 +149,30 @@ class Paint:
         try:
             return getattr(self.colour, attr_name)
         except AttributeError:
-            return getattr(self.characteristics, attr_name)
+            try:
+                return getattr(self.characteristics, attr_name)
+            except AttributeError:
+                try:
+                    return self.__extras[attr_name]
+                except KeyError:
+                    raise AttributeError(_("{}: unknown attribute for {}").format(attr_name, self.__class__.__name__))
     def set_rgb(self, rgb):
         self.colour = self.COLOUR(rgb)
     def set_characteristics(self, **kwargs):
         for c_name, c_value in kwargs.items():
             setattr(self.characteristics, c_name, c_value)
+    def set_extras(self, **kwargs):
+        for e_name, e_value in kwargs.items():
+            if e_name in self.__extras:
+                self.__extras[e_name] = e_value
+            else:
+                raise AttributeError(_("{}: unknown attribute for {}").format(e_name, self.__class__.__name__))
     def __ne__(self, other):
         if self.__name != other.__name:
             return True
         elif self.colour.rgb != other.colour.rgb:
+            return True
+        elif self.__extras != other.__extras:
             return True
         else:
             return self.characteristics != other.characteristics
@@ -162,11 +180,16 @@ class Paint:
         fmt_str = self.__class__.__name__ + "(name=\"{0}\", rgb={1}{2})"
         ename = re.sub('"', r'\"', self.__name)
         ergb = repr(self.colour.rgb)
-        echaracteristics = ""
+        kwargs_str = ""
         for name in self.CHARACTERISTICS.NAMES:
             value = getattr(self.characteristics, name)
-            echaracteristics += ", {0}=\"{1}\"".format(name, str(value))
-        return fmt_str.format(ename, ergb, echaracteristics)
+            kwargs_str += ", {0}=\"{1}\"".format(name, str(value))
+        for e_name, e_value in self.__extras.items():
+            if isinstance(e_value, str):
+                kwargs_str += ", {0}=\"{1}\"".format(e_name, re.sub('"', r'\"', e_value))
+            else:
+                kwargs_str += ", {0}={1}".format(e_name, repr(e_value))
+        return fmt_str.format(ename, ergb, kwargs_str)
 
 
 class ModelPaint(Paint):
@@ -285,7 +308,10 @@ class PaintSeries:
                         raise cls.ParseError(_("Badly formed definition: {0}.").format(line))
                     name = eval(match.group(1))
                     rgb = eval(match.group(2))
-                    series.add_paint(ModelPaint(name, rgb, transparency=match.group(3), finish=match.group(4), metallic="NM", fluorescence="NF"))
+                    kwargs = {"metallic": "NM", "fluorescence": "NF"}
+                    for e_name, e_def_value in ModelPaint.EXTRAS:
+                        kwargs[e_name] = e_def_value
+                    series.add_paint(ModelPaint(name, rgb, transparency=match.group(3), finish=match.group(4), **kwargs))
             elif ART_NC_MATCHER.match(lines[2]):
                 RGB = ArtPaint.COLOUR.RGB
                 colours = []
@@ -295,7 +321,10 @@ class PaintSeries:
                         raise cls.ParseError(_("Badly formed definition: {0}.").format(line))
                     name = eval(match.group(1))
                     rgb = eval(match.group(2))
-                    series.add_paint(ArtPaint(name, rgb, transparency=match.group(3), permanence=match.group(4)))
+                    kwargs = {}
+                    for e_name, e_def_value in ArtPaint.EXTRAS:
+                        kwargs[e_name] = e_def_value
+                    series.add_paint(ArtPaint(name, rgb, transparency=match.group(3), permanence=match.group(4), **kwargs))
             else:
                 RGB = ModelPaint.COLOUR.RGB
                 for line in lines[2:]:

@@ -1084,8 +1084,8 @@ class PaintColourInformationDialogue(dialogue.Dialog):
             self.set_default_size(*eval(last_size))
         vbox = self.get_content_area()
         vbox.pack_start(coloured.ColouredLabel(colour.name, colour.rgb.gdk_color), expand=False, fill=True, padding=0)
-        if hasattr(colour, "notes"):
-            vbox.pack_start(coloured.ColouredLabel(colour.series.notes, colour.rgb.gdk_color), expand=False, fill=True, padding=0)
+        for extra in colour.EXTRAS:
+            vbox.pack_start(coloured.ColouredLabel(getattr(colour, extra.name), colour.rgb.gdk_color), expand=False, fill=True, padding=0)
         if hasattr(colour, "series"):
             vbox.pack_start(coloured.ColouredLabel(colour.series.series_id.name, colour.rgb.gdk_color), expand=False, fill=True, padding=0)
             vbox.pack_start(coloured.ColouredLabel(colour.series.series_id.maker, colour.rgb.gdk_color), expand=False, fill=True, padding=0)

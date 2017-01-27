@@ -164,10 +164,10 @@ class FluorescenceChoice(MappedFloatChoice):
 
 class Metallic(MappedFloat):
     MAP = (
-        CHARACTERISTIC("NM", _("Non-mellatic"), 1.0),
-        CHARACTERISTIC("SN", _("Semi-nonf-mellatic"), 1.0),
-        CHARACTERISTIC("SM", _("Semi-mellatic"), 3.0),
-        CHARACTERISTIC("M", _("Mellatic"), 4.0),
+        CHARACTERISTIC("NM", _("Non-metallic"), 1.0),
+        CHARACTERISTIC("SM", _("Semi-metallic"), 1.0),
+        CHARACTERISTIC("Mc", _("Metallic"), 3.0),
+        CHARACTERISTIC("Ml", _("Metal"), 4.0),
     )
 
 class MetallicChoice(MappedFloatChoice):
