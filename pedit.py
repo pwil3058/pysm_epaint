@@ -447,7 +447,8 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
             "take_screen_sample",
             "automatch_sample_images_raw",
         ])
-        self.paint_colours = self.PAINT_LIST_NOTEBOOK()
+        self.paint_colours = self.PAINT_LIST_NOTEBOOK(wheel_popup="/colour_wheel_EI_popup")
+        self.paint_colours.set_wheels_edit_paint_acb(self._load_wheel_colour_into_editor_cb)
         self.paint_colours.set_size_request(480, 480)
         self.paint_colours.paint_list.action_groups.connect_activate("edit_selected_paint", self._edit_selected_colour_cb)
         # as these are company names don't split them up for autocompletion
@@ -643,6 +644,12 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
             paint = self.paint_colours.paint_list.get_selected_paints()[0]
             self.paint_editor.set_paint(paint)
             self.set_current_colour(paint)
+    def _load_wheel_colour_into_editor_cb(self, _action, wheel):
+        if self.colour_edit_state_ok():
+            paint = wheel.popup_colour
+            if paint:
+                self.paint_editor.set_paint(paint)
+                self.set_current_colour(paint)
     def _ask_overwrite_ok(self, name):
         return self.ask_ok_cancel(_("A colour with the name \"{0}\" already exists.\n Overwrite?").format(name))
     def _accept_colour_changes_cb(self, _widget=None):

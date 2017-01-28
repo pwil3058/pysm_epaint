@@ -514,6 +514,9 @@ class HueWheelNotebook(Gtk.Notebook):
     def set_wheels_add_paint_acb(self, callback):
         self.hue_chroma_wheel.set_add_paint_acb(callback)
         self.hue_value_wheel.set_add_paint_acb(callback)
+    def set_wheels_edit_paint_acb(self, callback):
+        self.hue_chroma_wheel.set_edit_paint_acb(callback)
+        self.hue_value_wheel.set_edit_paint_acb(callback)
     def add_paint(self, new_colour):
         self.hue_chroma_wheel.add_paint(new_colour)
         self.hue_value_wheel.add_paint(new_colour)
@@ -540,7 +543,11 @@ class ColourWheel(Gtk.DrawingArea, actions.CAGandUIManager):
                 <menuitem action="colour_info"/>
             </popup>
             <popup name="colour_wheel_AI_popup">
-                <menuitem action="add_paint"/>
+                <menuitem action="add_paint_from_wheel"/>
+                <menuitem action="colour_info"/>
+            </popup>
+            <popup name="colour_wheel_EI_popup">
+                <menuitem action="edit_paint_from_wheel"/>
                 <menuitem action="colour_info"/>
             </popup>
         </ui>
@@ -585,12 +592,16 @@ class ColourWheel(Gtk.DrawingArea, actions.CAGandUIManager):
             ("colour_info", Gtk.STOCK_INFO, None, None,
              _("Detailed information for this colour."),
             ),
-            ("add_paint", Gtk.STOCK_ADD, None, None,
+            ("add_paint_from_wheel", Gtk.STOCK_ADD, None, None,
              _("Add this colour to the mixer."),
+            ),
+            ("edit_paint_from_wheel", Gtk.STOCK_EDIT, None, None,
+             _("Load this paint into the editor."),
             ),
         ])
         self.__ci_acbid = self.action_groups.connect_activate("colour_info", self._show_colour_details_acb)
         self.__ac_acbid = None
+        self.__ec_acbid = None
     def _show_colour_details_acb(self, _action):
         PaintColourInformationDialogue(self.__popup_colour).show()
     def do_popup_preliminaries(self, event):
@@ -606,8 +617,12 @@ class ColourWheel(Gtk.DrawingArea, actions.CAGandUIManager):
         self.__ci_acbid = self.action_groups.connect_activate("colour_info", callback, self)
     def set_add_paint_acb(self, callback):
         if self.__ac_acbid is not None:
-            self.action_groups.disconnect_action("add_paint", self.__ac_acbid)
-        self.__ac_acbid = self.action_groups.connect_activate("add_paint", callback, self)
+            self.action_groups.disconnect_action("add_paint_from_wheel", self.__ac_acbid)
+        self.__ac_acbid = self.action_groups.connect_activate("add_paint_from_wheel", callback, self)
+    def set_edit_paint_acb(self, callback):
+        if self.__ec_acbid is not None:
+            self.action_groups.disconnect_action("edit_paint_from_wheel", self.__ec_acbid)
+        self.__ec_acbid = self.action_groups.connect_activate("edit_paint_from_wheel", callback, self)
     def polar_to_cartesian(self, radius, angle):
         if options.get("colour_wheel", "red_to_yellow_clockwise"):
             x = -radius * math.cos(angle)
@@ -1016,8 +1031,8 @@ class ArtPaintListView(ModelPaintListView):
 
 class PaintListNotebook(HueWheelNotebook):
     PAINT_LIST_VIEW = PaintListView
-    def __init__(self):
-        HueWheelNotebook.__init__(self)
+    def __init__(self, wheel_popup="/colour_wheel_I_popup"):
+        HueWheelNotebook.__init__(self, popup=wheel_popup)
         self.paint_list = self.PAINT_LIST_VIEW()
         self.append_page(gutils.wrap_in_scrolled_window(self.paint_list), Gtk.Label(label=_("Paint List")))
         self.paint_list.get_model().connect("paint_removed", self._paint_removed_cb)
