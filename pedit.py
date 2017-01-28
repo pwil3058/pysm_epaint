@@ -342,7 +342,7 @@ class PaintEditor(Gtk.VBox):
             label = Gtk.Label(label=extra.prompt_text)
             table.attach(label, 0, 1, next_row, next_row + 1, xoptions=0)
             self.extra_entries[extra.name] = entries.TextEntryAutoComplete(self.GENERAL_WORDS_LEXICON)
-            self.extra_entries[extra.name].set_text(extra.default)
+            self.extra_entries[extra.name].set_text(extra.default_value)
             self.extra_entries[extra.name].connect("new-words", lexicon.new_general_words_cb)
             self.extra_entries[extra.name].connect("changed", self._changed_cb)
             table.attach(self.extra_entries[extra.name], 1, 2, next_row, next_row + 1)
@@ -372,7 +372,7 @@ class PaintEditor(Gtk.VBox):
         self.colour_matcher.set_colour(None)
         self.colour_name.set_text("")
         for extra in self.PAINT.EXTRAS:
-            self.extra_entries[extra.name].set_text(extra.default)
+            self.extra_entries[extra.name].set_text(extra.default_value)
         if self.RESET_CHARACTERISTICS:
             for chooser in self.c_choosers.values():
                 chooser.set_active(-1)
@@ -639,9 +639,10 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         """
         Load the selected paint colour into the editor
         """
-        paint = self.paint_colours.paint_list.get_selected_paints()[0]
-        self.paint_editor.set_paint(paint)
-        self.set_current_colour(colour)
+        if self.colour_edit_state_ok():
+            paint = self.paint_colours.paint_list.get_selected_paints()[0]
+            self.paint_editor.set_paint(paint)
+            self.set_current_colour(paint)
     def _ask_overwrite_ok(self, name):
         return self.ask_ok_cancel(_("A colour with the name \"{0}\" already exists.\n Overwrite?").format(name))
     def _accept_colour_changes_cb(self, _widget=None):
@@ -654,14 +655,10 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
                     self.paint_colours.remove_paint(other_colour)
                 else:
                     return
-            # and do a full replace in paint_colours as the wheels
-            # use dictionaries indexed by name
-            self.paint_colours.remove_paint(self.current_colour)
-            self.paint_colours.add_paint(edited_colour)
-            self.current_colour = edited_colour
-        else:
-            self.current_colour.set_rgb(edited_colour.rgb)
-            self.current_colour.set_characteristics(**edited_colour.characteristics.get_kwargs())
+        # and do a full replace to make sure the view gets updated
+        self.paint_colours.remove_paint(self.current_colour)
+        self.paint_colours.add_paint(edited_colour)
+        self.current_colour = edited_colour
         self.paint_colours.queue_draw()
     def _reset_colour_editor_cb(self, _widget):
         if self.colour_edit_state_ok():
@@ -687,7 +684,8 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
             if not self._ask_overwrite_ok(new_colour.name):
                 return
             old_colour.set_rgb(new_colour.rgb)
-            old_colour.set_characteristics(**new_colour.characterisitcs.get_kwargs())
+            old_colour.set_extras(**new_colour.get_extras())
+            old_colour.set_characteristics(**new_colour.characteristics.get_kwargs())
             self.paint_colours.queue_draw()
             self.set_current_colour(old_colour)
         else:

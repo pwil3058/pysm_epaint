@@ -631,17 +631,25 @@ class ColourWheel(Gtk.DrawingArea, actions.CAGandUIManager):
     def query_tooltip_cb(self, widget, x, y, keyboard_mode, tooltip):
         colour, rng = self.get_colour_nearest_to_xy(x, y)
         if colour is not None and rng <= self.scaled_size:
-            tooltip.set_text(colour.name)
+            text = colour.name
+            if hasattr(colour, "EXTRAS"):
+                for extra in colour.EXTRAS:
+                    etext = getattr(colour, extra.name)
+                    if etext:
+                        text += "\n" + etext
+            tooltip.set_text(text)
             return True
         else:
             tooltip.set_text("")
             return False
     def scroll_event_cb(self, _widget, event):
-        # TODO: investigate strange zoom behaviour in colour wheel
         if event.device.get_source() == Gdk.InputSource.MOUSE:
             new_zoom = self.zoom + 0.025 * (-1 if event.direction == Gdk.ScrollDirection.UP else 1)
             if new_zoom > 1.0 and new_zoom < 5.0:
+                old_zoom = self.zoom
                 self.zoom = new_zoom
+                # ZOOM around the current centre not the graticule centre
+                self.offset *= (new_zoom / old_zoom)
                 self.queue_draw()
             return True
         return False
@@ -695,7 +703,7 @@ class ColourWheel(Gtk.DrawingArea, actions.CAGandUIManager):
         #
         # calculate a scale factor to use for drawing the graph based
         # on the minimum available width or height
-        mindim = min(self.centre.x, dh / 2)
+        mindim = min(dw / 2, dh / 2)
         self.scale = mindim / scaledmax
         self.one = self.scale * 100
         self.scaled_size = self.size * self.scale
@@ -890,6 +898,10 @@ def paint_cell_data_func(column, cell, model, model_iter, attribute):
         cell.set_property("text", str(float(round(paint.warmth, 2))))
         cell.set_property("background-gdk", paint.warmth_rgb.gdk_color)
         cell.set_property("foreground-gdk", paint.warmth_rgb.best_foreground_gdk_color())
+    elif attribute in [extra.name for extra in paint.EXTRAS]:
+        cell.set_property("text", str(getattr(paint, attribute)))
+        cell.set_property("background-gdk", paint.gdk_color)
+        cell.set_property("foreground-gdk", paint.best_foreground_gdk_color())
     else: # handle characteristics generically
         cell.set_property("text", str(getattr(paint, attribute)))
 
@@ -973,17 +985,20 @@ class PaintListView(tlview.View, actions.CAGandUIManager, dialogue.AskerMixin):
         model, paths = self.get_selection().get_selected_rows()
         return [model[p][0] for p in paths]
 
-def paint_characteristics_tns_list(paint):
+def paint_characteristics_tns_list(paint, index=0):
     names = paint.CHARACTERISTICS.NAMES
     return [TNS(pchar.cell_column_header(name), name, {}, lambda row: getattr(row[index], name)) for name in names]
 
+def paint_extras_tns_list(paint, index=0):
+    return [TNS(extra.prompt_text[:-1], extra.name, {"resizable" : True, "expand" : True}, lambda row: getattr(row[index], extra.name)) for extra in paint.EXTRAS]
+
 
 class ModelPaintListStore(PaintListStore):
-    COLUMN_DEFS = [
-        TNS(_("Colour Name"), "name", {"resizable" : True, "expand" : True}, lambda row: row[0].name),
-        TNS(_("Value"), "value", {}, lambda row: row[0].value),
-        TNS(_("Hue"), "hue", {}, lambda row: row[0].hue),
-    ] + paint_characteristics_tns_list(vpaint.ModelPaint)
+    COLUMN_DEFS = [TNS(_("Colour Name"), "name", {"resizable" : True, "expand" : True}, lambda row: row[0].name)] + \
+        paint_extras_tns_list(vpaint.ModelPaint) + \
+        [   TNS(_("Value"), "value", {}, lambda row: row[0].value),
+            TNS(_("Hue"), "hue", {}, lambda row: row[0].hue),
+        ] + paint_characteristics_tns_list(vpaint.ModelPaint)
 
 class ArtPaintListStore(PaintListStore):
     COLUMN_DEFS = [
