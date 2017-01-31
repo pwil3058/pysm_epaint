@@ -467,10 +467,13 @@ class WarmthDisplay(ValueDisplay):
             self.target_val = (1 + colour.warmth) / 2
 
 class HCVDisplay(Gtk.VBox):
-    def __init__(self, colour=vpaint.WHITE, target_colour=None, size=(256, 120), stype = Gtk.ShadowType.ETCHED_IN):
+    DEFAULT_COLOUR = vpaint.WHITE
+    def __init__(self, colour=None, target_colour=None, size=(256, 120), stype = Gtk.ShadowType.ETCHED_IN):
         Gtk.VBox.__init__(self)
         #
         w, h = size
+        if colour is None:
+            colour = self.DEFAULT_COLOUR
         self.hue = HueDisplay(colour=colour, target_colour=target_colour, size=(w, h / 4))
         self.pack_start(gutils.wrap_in_frame(self.hue, stype), expand=False, fill=True, padding=0)
         self.value = ValueDisplay(colour=colour, target_colour=target_colour, size=(w, h / 4))
@@ -479,6 +482,8 @@ class HCVDisplay(Gtk.VBox):
         self.pack_start(gutils.wrap_in_frame(self.chroma, stype), expand=False, fill=True, padding=0)
         self.show()
     def set_colour(self, new_colour):
+        if new_colour is None:
+            new_colour = self.DEFAULT_COLOUR
         self.chroma.set_colour(new_colour)
         self.hue.set_colour(new_colour)
         self.value.set_colour(new_colour)
@@ -660,7 +665,7 @@ class ColourWheel(Gtk.DrawingArea, actions.CAGandUIManager):
     def scroll_event_cb(self, _widget, event):
         if event.device.get_source() == Gdk.InputSource.MOUSE:
             new_zoom = self.zoom + 0.025 * (-1 if event.direction == Gdk.ScrollDirection.UP else 1)
-            if new_zoom > 1.0 and new_zoom < 5.0:
+            if new_zoom > 1.0 and new_zoom < 10.0:
                 old_zoom = self.zoom
                 self.zoom = new_zoom
                 # ZOOM around the current centre not the graticule centre
@@ -913,7 +918,7 @@ def paint_cell_data_func(column, cell, model, model_iter, attribute):
         cell.set_property("text", str(float(round(paint.warmth, 2))))
         cell.set_property("background-gdk", paint.warmth_rgb.gdk_color)
         cell.set_property("foreground-gdk", paint.warmth_rgb.best_foreground_gdk_color())
-    elif attribute in [extra.name for extra in paint.EXTRAS]:
+    elif hasattr(paint, "EXTRAS") and attribute in [extra.name for extra in paint.EXTRAS]:
         cell.set_property("text", str(getattr(paint, attribute)))
         cell.set_property("background-gdk", paint.gdk_color)
         cell.set_property("foreground-gdk", paint.best_foreground_gdk_color())
@@ -982,6 +987,13 @@ class PaintListView(tlview.View, actions.CAGandUIManager, dialogue.AskerMixin):
                 ),
             ]
         )
+        self.action_groups[actions.AC_SELN_UNIQUE].add_actions(
+            [
+                ("show_paint_details", Gtk.STOCK_INFO, None, None,
+                 _("Show a detailed description of the selected paint."),
+                self._show_paint_details_cb),
+            ],
+        )
     def _remove_selection_cb(self, _action):
         """Delete the currently selected paints
         """
@@ -994,6 +1006,9 @@ class PaintListView(tlview.View, actions.CAGandUIManager, dialogue.AskerMixin):
         msg += _("and will not be recoverable. OK?")
         if self.ask_ok_cancel(msg):
             self.model.remove_paints(paints)
+    def _show_paint_details_cb(self, _action):
+        paint = self.get_selected_paints()[0]
+        PaintColourInformationDialogue(paint).show()
     def get_selected_paints(self):
         """Return the currently selected paints as a list.
         """

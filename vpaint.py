@@ -77,7 +77,7 @@ class HCV:
         # having white or black (whichever is quicker) added until the
         # chroma value is zero (useful for displaying chroma values)
         if self.__hue.is_grey:
-            return self.__value_rgb
+            return self.value_rgb
         mcv = self.__hue.max_chroma_value()
         dc = 1.0 - self.__chroma
         if dc != 0.0:
@@ -333,60 +333,3 @@ class PaintSeries:
                     except TypeError as edata:
                         raise cls.ParseError(_("Badly formed definition: {0}. ({1})").format(line, str(edata)))
         return series
-
-BLOB = collections.namedtuple("BLOB", ["colour", "parts"])
-
-class Mixture:
-    PAINT = None
-    def __init__(self, blobs):
-        rgb = self.PAINT.COLOUR.RGB.BLACK
-        self.characteristics = self.PAINT.CHARACTERISTICS()
-        parts = 0
-        for blob in blobs:
-            parts += blob.parts
-            rgb += blob.colour.rgb * blob.parts
-            self.characteristics += blob.colour.characteristics * blob.parts
-        assert parts > 0, "Empty Mixture"
-        self.colour = self.PAINT.COLOUR(rgb / parts)
-        self.characteristics /= parts
-        self.blobs = sorted(blobs, key=lambda x: x.parts, reverse=True)
-    def __getattr__(self, attr_name):
-        try:
-            return getattr(self.colour, attr_name)
-        except AttributeError:
-            return getattr(self.characteristics, attr_name)
-    def _components_str(self):
-        string = _("\nComponents:\n")
-        for blob in self.blobs:
-            string += _("\t{0} Part(s): {1}\n").format(blob.parts, blob.colour)
-        return string
-    def __str__(self):
-        return _("Mixed Colour: ") + Colour.__str__(self) + self._components_str()
-    def contains_colour(self, colour):
-        for blob in self.blobs:
-            if blob.colour == colour:
-                return True
-        return False
-
-class MixedPaint:
-    MIXTURE = None
-    def __init__(self, blobs, name, notes=""):
-        self.mixture = self.MIXTURE(blobs)
-        self.name = name
-        self.notes = notes
-    def __getattr__(self, attr_name):
-        return getattr(self.mixture, attr_name)
-    def __str__(self):
-        return ("Name: \"{0}\" Notes: \"{1}\"").format(self.name, self.notes) + Colour.__str__(self) + self._components_str()
-
-class ModelMixture(Mixture):
-    PAINT = ModelPaint
-
-class MixedModelPaint(MixedPaint):
-    MIXTURE = ModelMixture
-
-class ArtMixture(Mixture):
-    PAINT = ArtPaint
-
-class MixedArtPaint(MixedPaint):
-    MIXTURE = ArtMixture
