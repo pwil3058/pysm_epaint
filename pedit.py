@@ -69,8 +69,8 @@ class UnacceptedChangesDialogue(dialogue.Dialog):
     ACCEPT_CHANGES_AND_CONTINUE, CONTINUE_DISCARDING_CHANGES = range(1, 3)
     def __init__(self, parent, message):
         buttons = (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
-        buttons += (_('Accept and Continue'), UnacceptedChangesDialogue.ACCEPT_CHANGES_AND_CONTINUE)
-        buttons += (_('Continue (Discarding Changes)'), UnacceptedChangesDialogue.CONTINUE_DISCARDING_CHANGES)
+        buttons += (_("Accept and Continue"), UnacceptedChangesDialogue.ACCEPT_CHANGES_AND_CONTINUE)
+        buttons += (_("Continue (Discarding Changes)"), UnacceptedChangesDialogue.CONTINUE_DISCARDING_CHANGES)
         dialogue.Dialog.__init__(self,
             parent=parent,
             flags=Gtk.DialogFlags.MODAL,
@@ -84,7 +84,7 @@ class UnaddedNewColourDialogue(dialogue.Dialog):
     DISCARD_AND_CONTINUE = 1
     def __init__(self, parent, message):
         buttons = (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
-        buttons += (_('Discard and Continue'), UnaddedNewColourDialogue.DISCARD_AND_CONTINUE)
+        buttons += (_("Discard and Continue"), UnaddedNewColourDialogue.DISCARD_AND_CONTINUE)
         dialogue.Dialog.__init__(self,
             parent=parent,
             flags=Gtk.DialogFlags.MODAL,
@@ -328,6 +328,7 @@ class PaintEditor(Gtk.VBox):
     GENERAL_WORDS_LEXICON = lexicon.GENERAL_WORDS_LEXICON
     PAINT = None
     RESET_CHARACTERISTICS = True
+    PROVIDE_RGB_ENTRY = True
 
     def __init__(self):
         Gtk.VBox.__init__(self)
@@ -362,6 +363,7 @@ class PaintEditor(Gtk.VBox):
         # Matcher
         class ColourMatcher(ColourSampleMatcher):
             COLOUR = self.PAINT.COLOUR
+            PROVIDE_RGB_ENTRY = self.PROVIDE_RGB_ENTRY
         self.colour_matcher = ColourMatcher()
         self.pack_start(self.colour_matcher, expand=True, fill=True, padding=0)
         #
@@ -812,21 +814,27 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         Gtk.main_quit()
 GObject.signal_new("file_changed", PaintSeriesEditor, GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_PYOBJECT,))
 
+
+from .. import SYS_SAMPLES_DIR_PATH
+
+recollect.define("sample_viewer", "last_file", recollect.Defn(str, os.path.join(SYS_SAMPLES_DIR_PATH, "example.jpg")))
+recollect.define("sample_viewer", "last_size", recollect.Defn(str, ""))
+
 class SampleViewer(Gtk.Window, actions.CAGandUIManager):
     """
     A top level window for a colour sample file
     """
-    UI_DESCR = '''
+    UI_DESCR = """
     <ui>
-      <menubar name='colour_sample_menubar'>
-        <menu action='colour_sample_file_menu'>
-          <menuitem action='open_colour_sample_file'/>
-          <menuitem action='close_colour_sample_viewer'/>
+      <menubar name="colour_sample_menubar">
+        <menu action="colour_sample_file_menu">
+          <menuitem action="open_colour_sample_file"/>
+          <menuitem action="close_colour_sample_viewer"/>
         </menu>
       </menubar>
     </ui>
-    '''
-    TITLE_TEMPLATE = _('mcmmtk: Colour Sample: {}')
+    """
+    TITLE_TEMPLATE = _("mcmmtk: Colour Sample: {}")
     def __init__(self, parent):
         Gtk.Window.__init__(self, Gtk.WindowType.TOPLEVEL)
         actions.CAGandUIManager.__init__(self)
@@ -835,7 +843,7 @@ class SampleViewer(Gtk.Window, actions.CAGandUIManager):
             self.set_default_size(*eval(last_size))
         self.set_icon_from_file(icons.APP_ICON_FILE)
         self.set_size_request(300, 200)
-        last_samples_file = recollect.get('sample_viewer', 'last_file')
+        last_samples_file = recollect.get("sample_viewer", "last_file")
         if os.path.isfile(last_samples_file):
             try:
                 pixbuf = GdkPixbuf.Pixbuf.new_from_file(last_samples_file)
@@ -847,10 +855,10 @@ class SampleViewer(Gtk.Window, actions.CAGandUIManager):
             last_samples_file = None
         self.set_title(self.TITLE_TEMPLATE.format(None if last_samples_file is None else os.path.relpath(last_samples_file)))
         self.pixbuf_view = iview.PixbufView()
-        self._menubar = self.ui_manager.get_widget('/colour_sample_menubar')
+        self._menubar = self.ui_manager.get_widget("/colour_sample_menubar")
         self.buttons = self.pixbuf_view.action_groups.create_action_button_box([
-            'zoom_in',
-            'zoom_out',
+            "zoom_in",
+            "zoom_out",
         ])
         vbox = Gtk.VBox()
         vbox.pack_start(self._menubar, expand=False, fill=True, padding=0)
@@ -862,12 +870,12 @@ class SampleViewer(Gtk.Window, actions.CAGandUIManager):
         self.pixbuf_view.set_pixbuf(pixbuf)
     def populate_action_groups(self):
         self.action_groups[actions.AC_DONT_CARE].add_actions([
-            ('colour_sample_file_menu', None, _('File')),
-            ('open_colour_sample_file', Gtk.STOCK_OPEN, None, None,
-            _('Load a colour sample file.'),
+            ("colour_sample_file_menu", None, _("File")),
+            ("open_colour_sample_file", Gtk.STOCK_OPEN, None, None,
+            _("Load a colour sample file."),
             self._open_colour_sample_file_cb),
-            ('close_colour_sample_viewer', Gtk.STOCK_CLOSE, None, None,
-            _('Close this window.'),
+            ("close_colour_sample_viewer", Gtk.STOCK_CLOSE, None, None,
+            _("Close this window."),
             self._close_colour_sample_viewer_cb),
         ])
     def _size_allocation_cb(self, widget, allocation):
@@ -878,17 +886,17 @@ class SampleViewer(Gtk.Window, actions.CAGandUIManager):
         """
         parent = self.get_toplevel()
         dlg = Gtk.FileChooserDialog(
-            title=_('Open Colour Sample File'),
+            title=_("Open Colour Sample File"),
             parent=parent if isinstance(parent, Gtk.Window) else None,
             action=Gtk.FileChooserAction.OPEN,
             buttons=(Gtk.STOCK_CANCEL,Gtk.ResponseType.CANCEL,Gtk.STOCK_OPEN,Gtk.ResponseType.OK)
         )
-        last_samples_file = recollect.get('sample_viewer', 'last_file')
+        last_samples_file = recollect.get("sample_viewer", "last_file")
         last_samples_dir = None if last_samples_file is None else os.path.dirname(last_samples_file)
         if last_samples_dir:
             dlg.set_current_folder(last_samples_dir)
         gff = Gtk.FileFilter()
-        gff.set_name(_('Image Files'))
+        gff.set_name(_("Image Files"))
         gff.add_pixbuf_formats()
         dlg.add_filter(gff)
         if dlg.run() == Gtk.ResponseType.OK:
@@ -897,10 +905,10 @@ class SampleViewer(Gtk.Window, actions.CAGandUIManager):
             try:
                 pixbuf = GdkPixbuf.Pixbuf.new_from_file(filepath)
             except GLib.GError:
-                msg = _('{}: Problem extracting image from file.').format(filepath)
+                msg = _("{}: Problem extracting image from file.").format(filepath)
                 dialogue.MessageDialog(type=Gtk.MessageType.ERROR, buttons=Gtk.ButtonsType.CLOSE, text=msg).run()
                 return
-            recollect.set('sample_viewer', 'last_file', filepath)
+            recollect.set("sample_viewer", "last_file", filepath)
             self.set_title(self.TITLE_TEMPLATE.format(None if filepath is None else os.path.relpath(filepath)))
             self.pixbuf_view.set_pixbuf(pixbuf)
         else:
