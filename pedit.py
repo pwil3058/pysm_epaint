@@ -396,7 +396,7 @@ class PaintEditor(Gtk.VBox):
             self.extra_entries[extra.name].set_text(getattr(paint, extra.name))
         self.c_choosers.set_selections(**paint.characteristics.get_kwargs())
 
-    def auto_match_sample(self, raw=False):
+    def auto_match_sample(self, raw=True):
         self.colour_matcher.auto_match_sample(raw)
 
     def get_masked_condns(self):
@@ -409,10 +409,19 @@ GObject.signal_new("changed", PaintEditor, GObject.SignalFlags.RUN_LAST, None, (
 class ModelPaintEditor(PaintEditor):
     PAINT = vpaint.ModelPaint
 
+recollect.define("editor", "hpaned_position", recollect.Defn(int, -1))
+recollect.define("editor", "last_file", recollect.Defn(str, ""))
 
 class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMixin, dialogue.AskerMixin):
     PAINT_EDITOR = None
     PAINT_LIST_NOTEBOOK = None
+    BUTTONS = [
+            "add_colour_into_series",
+            "accept_colour_changes",
+            "reset_colour_editor",
+            "take_screen_sample",
+            "automatch_sample_images",
+        ]
     UI_DESCR = """
     <ui>
       <menubar name="paint_series_editor_menubar">
@@ -444,13 +453,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         self.paint_editor = self.PAINT_EDITOR()
         self.paint_editor.connect("changed", self._paint_editor_change_cb)
         self.paint_editor.colour_matcher.sample_display.connect("samples-changed", self._sample_change_cb)
-        self.buttons = self.action_groups.create_action_button_box([
-            "add_colour_into_series",
-            "accept_colour_changes",
-            "reset_colour_editor",
-            "take_screen_sample",
-            "automatch_sample_images_raw",
-        ])
+        self.buttons = self.action_groups.create_action_button_box(self.BUTTONS)
         self.paint_colours = self.PAINT_LIST_NOTEBOOK(wheel_popup="/colour_wheel_EI_popup")
         self.paint_colours.set_wheels_edit_paint_acb(self._load_wheel_colour_into_editor_cb)
         self.paint_colours.set_size_request(480, 480)
@@ -487,7 +490,15 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
             recollect.set("editor", "hpaned_position", str(widget.get_position()))
     def populate_action_groups(self):
         self.action_groups[gpaint.ColourSampleArea.AC_SAMPLES_PASTED].add_actions([
-            ("automatch_sample_images_raw", None, _("Auto Match"), None,
+            ("automatch_sample_images_max_chroma", None, _("Auto Match (Max Chroma)"), None,
+            _("Auto matically match the colour to the sample images adjusted to minimise greyness."
+              "This is appropriate for matching paints which tend to be pure pigments intended for mixing."),
+            self._automatch_sample_images_max_chroma_cb),
+            ("automatch_sample_images_raw", None, _("Auto Match (Raw)"), None,
+            _("Auto matically match the colour to the sample images assuming colour has been produced by mixing."
+              "This is appropriate for matching paints which tend to be already mixed to match commonly used colours."),
+            self._automatch_sample_images_raw_cb),
+            ("automatch_sample_images", None, _("Auto Match"), None,
             _("Auto matically match the colour to the sample images."),
             self._automatch_sample_images_raw_cb),
         ])
@@ -702,6 +713,8 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         else:
             self.paint_colours.add_paint(new_colour)
             self.set_current_colour(new_colour)
+    def _automatch_sample_images_max_chroma_cb(self, _widget):
+        self.paint_editor.auto_match_sample(raw=False)
     def _automatch_sample_images_raw_cb(self, _widget):
         self.paint_editor.auto_match_sample(raw=True)
     def load_fm_file(self, filepath):
