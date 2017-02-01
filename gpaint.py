@@ -152,7 +152,7 @@ class ColourSampleArea(Gtk.DrawingArea, actions.CAGandUIManager):
     def set_bg_colour(self, colour):
         """Set the drawing area to the specified colour
         """
-        self.bg_colour = colour
+        self.bg_colour = self.default_bg_colour if colour is None else colour
         self.queue_draw()
     def expose_cb(self, _widget, cairo_ctxt):
         """Repaint the drawing area
@@ -307,8 +307,9 @@ class HueDisplay(GenericAttrDisplay):
 
     def expose_cb(self, widget, cairo_ctxt):
         if self.colour is None and self.target_val is None:
-            cairo_ctxt.set_source_rgb(0, 0, 0)
+            cairo_ctxt.set_source_rgb(*vpaint.WHITE.rgb16)
             cairo_ctxt.paint()
+            self.draw_label(cairo_ctxt)
             return
         #
         if self.target_val is None:
@@ -378,10 +379,11 @@ class ValueDisplay(GenericAttrDisplay):
         self.end_colour = rgbh.RGBPN.WHITE
         GenericAttrDisplay.__init__(self, colour=colour, target_colour=target_colour, size=size)
     def expose_cb(self, widget, cairo_ctxt):
-        if self.colour is None and self.target_colour is None:
-            cairo_ctxt.set_source_rgb(0, 0, 0)
-            cairo_ctxt.paint()
-            return
+        #if self.colour is None and self.target_colour is None:
+            #cairo_ctxt.set_source_rgb(0, 0, 0)
+            #cairo_ctxt.paint()
+            #self.draw_label(cairo_ctxt)
+            #return
         width = widget.get_allocated_width()
         height = widget.get_allocated_height()
         linear_gradient = cairo.LinearGradient(0, 0, width, height)
@@ -420,7 +422,7 @@ class ChromaDisplay(ValueDisplay):
         if colour is None:
             self.indicator_val = None
             if self.target_colour is None:
-                self.start_colour = start.end_colour = vpaint.WHITE
+                self.start_colour = self.end_colour = vpaint.WHITE
                 self.fg_colour = self.target_fg_colour = vpaint.BLACK
         else:
             if self.target_colour is None:
@@ -434,7 +436,7 @@ class ChromaDisplay(ValueDisplay):
         if colour is None:
             self.target_val = None
             if self.colour is None:
-                self.start_colour = start.end_colour = vpaint.WHITE
+                self.start_colour = self.end_colour = vpaint.WHITE
                 self.fg_colour = self.target_fg_colour = vpaint.BLACK
             else:
                 self._set_colour(self.colour)
@@ -455,8 +457,12 @@ class WarmthDisplay(ValueDisplay):
         """
         Set values that only change when the colour changes
         """
-        self.fg_colour = colour.warmth_rgb.best_foreground()
-        self.indicator_val = (1 + colour.warmth) / 2
+        if colour is None:
+            self.indicator_val = None
+            self.fg_colour = vpaint.WHITE
+        else:
+            self.fg_colour = colour.warmth_rgb.best_foreground()
+            self.indicator_val = (1 + colour.warmth) / 2
     def _set_target_colour(self, colour):
         """Set values that only change when the target colour changes
         """
@@ -482,8 +488,8 @@ class HCVDisplay(Gtk.VBox):
         self.pack_start(gutils.wrap_in_frame(self.chroma, stype), expand=False, fill=True, padding=0)
         self.show()
     def set_colour(self, new_colour):
-        if new_colour is None:
-            new_colour = self.DEFAULT_COLOUR
+        #if new_colour is None:
+            #new_colour = self.DEFAULT_COLOUR
         self.chroma.set_colour(new_colour)
         self.hue.set_colour(new_colour)
         self.value.set_colour(new_colour)
@@ -611,7 +617,7 @@ class ColourWheel(Gtk.DrawingArea, actions.CAGandUIManager):
         PaintColourInformationDialogue(self.__popup_colour).show()
     def do_popup_preliminaries(self, event):
         colour, rng = self.get_colour_nearest_to_xy(event.x, event.y)
-        if colour is not None and rng <= self.scaled_size:
+        if colour is not None and rng <= self.scaled_size * 1.5:
             self.__popup_colour = colour
             self.action_groups.update_condns(actions.MaskedCondns(self.AC_HAVE_POPUP_COLOUR, self.AC_HAVE_POPUP_COLOUR))
         else:

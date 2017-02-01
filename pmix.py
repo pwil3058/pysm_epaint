@@ -74,7 +74,7 @@ def write_series_file_names(sf_names):
         fobj.write(os.linesep)
     fobj.close()
 
-BLOB = collections.namedtuple("BLOB", ["colour", "parts"])
+BLOB = collections.namedtuple("BLOB", ["paint", "parts"])
 
 class Mixture:
     PAINT = None
@@ -84,8 +84,8 @@ class Mixture:
         parts = 0
         for blob in blobs:
             parts += blob.parts
-            rgb += blob.colour.rgb * blob.parts
-            self.characteristics += blob.colour.characteristics * blob.parts
+            rgb += blob.paint.rgb * blob.parts
+            self.characteristics += blob.paint.characteristics * blob.parts
         assert parts > 0, "Empty Mixture"
         self.colour = self.PAINT.COLOUR(rgb / parts)
         self.characteristics /= parts
@@ -102,9 +102,9 @@ class Mixture:
         return string
     def __str__(self):
         return _("Mixed Colour: ") + Colour.__str__(self) + self._components_str()
-    def contains_colour(self, colour):
+    def contains_paint(self, paint):
         for blob in self.blobs:
-            if blob.colour == colour:
+            if blob.paint == paint:
                 return True
         return False
 
@@ -124,12 +124,6 @@ class ModelMixture(Mixture):
 
 class MixedModelPaint(MixedPaint):
     MIXTURE = ModelMixture
-
-class ArtMixture(Mixture):
-    PAINT = vpaint.ArtPaint
-
-class MixedArtPaint(MixedPaint):
-    MIXTURE = ArtMixture
 
 class NewMixedColourDialogue(dialogue.Dialog):
     COLOUR = None
@@ -443,12 +437,14 @@ class MixedPaintComponentsListView(gpaint.PaintListView):
     MODEL = MixedPaintComponentsListStore
     SPECIFICATION = generate_components_list_spec
 
+recollect.define("mixed_colour_information", "last_size", recollect.Defn(eval, ""))
+
 class MixedPaintInformationDialogue(dialogue.Dialog):
     """
     A dialog to display the detailed information for a mixed colour
     """
     COMPONENT_LIST_VIEW = None
-    def __init__(self, colour, target_colour, parent=None):
+    def __init__(self, colour, target_colour=None, parent=None):
         dialogue.Dialog.__init__(self, title=_("Mixed Colour: {}").format(colour.name), parent=parent)
         last_size = recollect.get("mixed_colour_information", "last_size")
         if last_size:
@@ -456,11 +452,15 @@ class MixedPaintInformationDialogue(dialogue.Dialog):
         vbox = self.get_content_area()
         vbox.pack_start(coloured.ColouredLabel(colour.name, colour.gdk_color), expand=False, fill=True, padding=0)
         vbox.pack_start(coloured.ColouredLabel(colour.notes, colour.gdk_color), expand=False, fill=True, padding=0)
-        vbox.pack_start(coloured.ColouredLabel(_("Target"), target_colour.gdk_color), expand=False, fill=True, padding=0)
-        thcvd = gpaint.HCVDisplay(colour, target_colour)
-        vbox.pack_start(thcvd, expand=False, fill=True, padding=0)
-        vbox.pack_start(Gtk.Label(colour.transparency.description()), expand=False, fill=True, padding=0)
-        vbox.pack_start(Gtk.Label(colour.finish.description()), expand=False, fill=True, padding=0)
+        if target_colour:
+            vbox.pack_start(coloured.ColouredLabel(_("Target"), target_colour.gdk_color), expand=False, fill=True, padding=0)
+        if hasattr(colour, "warmth"):
+            vbox.pack_start(gpaint.HCVWDisplay(colour=colour, target_colour=target_colour), expand=False, fill=True, padding=0)
+        else:
+            vbox.pack_start(gpaint.HCVDisplay(colour=colour, target_colour=target_colour), expand=False, fill=True, padding=0)
+        if hasattr(colour, "characteristics"):
+            for characteristic in colour.characteristics:
+                vbox.pack_start(Gtk.Label(characteristic.description()), expand=False, fill=True, padding=0)
         self.cview = self.COMPONENT_LIST_VIEW()
         for component in colour.blobs:
             self.cview.model.append(component)
@@ -578,6 +578,8 @@ class MatchedModelPaintListView(MatchedPaintListView):
     """
     MODEL = MatchedModelPaintListStore
     MIXED_PAINT_INFORMATION_DIALOGUE = MixedModelPaintInformationDialogue
+
+recollect.define("paint_colour_selector", "hpaned_position", recollect.Defn(int, -1))
 
 class PaintSelector(Gtk.VBox):
     """
