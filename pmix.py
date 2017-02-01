@@ -580,6 +580,7 @@ class MatchedModelPaintListView(MatchedPaintListView):
     MIXED_PAINT_INFORMATION_DIALOGUE = MixedModelPaintInformationDialogue
 
 recollect.define("paint_colour_selector", "hpaned_position", recollect.Defn(int, -1))
+recollect.define("paint_colour_selector", "last_size", recollect.Defn(str, ""))
 
 class PaintSelector(Gtk.VBox):
     """
