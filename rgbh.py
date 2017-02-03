@@ -13,8 +13,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-"""
-Implement types to represent red/green/blue data as a tuple and
+"""Implement types to represent red/green/blue data as a tuple and
 map to painterly attributes such as value (lightness/darkness),
 chroma (opposite of greyness) and hue (as an angle with red = 0).
 """
@@ -148,7 +147,7 @@ class RGBNG: # NB: We don't want most of list/tuple operations so use a wrapper
         else:
             return rgbt(*[rgbt.ROUND((component * rgbt.ONE) / self.ONE) for component in self.__components])
     def as_array(self):
-        return array.array(cls.ARRAY_TYPECODE, *self.__components)
+        return array.array(self.ARRAY_TYPECODE, self.__components)
     def best_foreground_is_black(self, threshold=0.5):
         return (self.__components[0] * 0.299 + self.__components[1] * 0.587 + self.__components[2] * 0.114) > self.ONE * threshold
     def best_foreground(self, threshold=0.5):
@@ -188,7 +187,6 @@ class RGBNG: # NB: We don't want most of list/tuple operations so use a wrapper
         case of 2 non zero components this change is undesirable and
         needs to be avoided by using a higher level wrapper function
         that is aware of item types and maximum allowed value per component.
-        from .bab import mathx
         """
         def calc_ks(delta_hue_angle):
             a = math.sin(delta_hue_angle)
