@@ -334,7 +334,7 @@ class HueDisplay(GenericAttrDisplay):
             delta_hue_angle = -spread / width
         linear_gradient = cairo.LinearGradient(0, 0, width, height)
         for i in range(width):
-            hue = rgbh.HuePN.from_angle(start_hue_angle + delta_hue_angle * i)
+            hue = rgbh.HuePN(start_hue_angle + delta_hue_angle * i)
             linear_gradient.add_color_stop_rgb(float(i) / width, *hue.rgb)
         cairo_ctxt.rectangle(0, 0, width, height)
         cairo_ctxt.set_source(linear_gradient)
@@ -742,7 +742,7 @@ class ColourWheel(Gtk.DrawingArea, actions.CAGandUIManager):
         #
         cairo_ctxt.set_line_width(2)
         for angle in [mathx.PI_60 * i for i in range(6)]:
-            hue = rgbh.HuePN.from_angle(angle)
+            hue = rgbh.HuePN(angle)
             cairo_ctxt.set_source_rgb(*hue.rgb)
             cairo_ctxt.move_to(self.centre.x, self.centre.y)
             cairo_ctxt.line_to(*self.polar_to_cartesian(self.one * self.zoom, angle))

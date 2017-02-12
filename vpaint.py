@@ -24,12 +24,10 @@ import fractions
 
 from ..bab import mathx
 
+from ..gtx import rgb_math
+
 from . import pchar
 from . import rgbh
-
-if __name__ == "__main__":
-    import doctest
-    _ = lambda x: x
 
 class HCV:
     RGB = rgbh.RGB16
@@ -38,11 +36,11 @@ class HCV:
     def __init__(self, rgb):
         self.__rgb = rgb.converted_to(self.RGB)
         self.__value = self.__rgb.get_value()
-        xy = rgbh.Cartesian.from_rgb(self.__rgb)
+        xy = rgb_math.rgb_to_xy(self.__rgb)
         class Hue(rgbh.HueNG):
             RGB = self.RGB
-        self.__hue = Hue.from_angle(xy.get_angle())
-        self.__chroma = xy.get_hypot() * self.__hue.chroma_correction / self.RGB.ONE
+        self.__hue = Hue.from_xy(*xy)
+        self.__chroma = math.hypot(*xy) * self.__hue.chroma_correction / self.RGB.ONE
         if self.RGB.BITS_PER_CHANNEL is None:
             self.__warmth = xy.x / self.RGB.ONE
         else:
@@ -71,7 +69,7 @@ class HCV:
         return self.RGB.WHITE * self.__value
     def hue_rgb_for_value(self, value=None):
         # value == None means same hue and value but without any unnecessary grey
-        return self.__hue.rgb_with_value(self.__value if value is None else value)
+        return self.__hue.max_chroma_rgb_with_value(self.__value if value is None else value)
     def zero_chroma_rgb(self):
         # get the rgb for the grey which would result from this colour
         # having white or black (whichever is quicker) added until the
@@ -101,7 +99,7 @@ class HCV:
         if self.__rgb.non_zero_components == 2:
             # we have no grey so only add grey if necessary to maintain value
             hue = self.__hue.rotated_by(delta_hue_angle)
-            return hue.rgb_with_value(self.__value)
+            return hue.max_chroma_rgb_with_value(self.__value)
         else:
             # Simple rotation is the correct solution for 1 or 3 components
             return self.__rgb.rotated(delta_hue_angle)

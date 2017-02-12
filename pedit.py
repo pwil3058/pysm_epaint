@@ -207,8 +207,9 @@ class ColourSampleMatcher(Gtk.VBox):
         self.show_all()
 
     def set_colour(self, colour):
+        from ..gtx import rgb_math
         colour = self.COLOUR(colour) if colour is not None else self.DEFAULT_COLOUR()
-        self.rgb_manipulator = rgbh.RGBManipulator(colour.rgb)
+        self.rgb_manipulator = rgb_math.RGBManipulator(colour.rgb)
         self._set_colour(colour)
 
     def _set_colour_fm_manipulator(self):
