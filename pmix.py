@@ -1018,15 +1018,25 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin):
         hpaned.connect("notify", self._paned_notify_cb)
         self.paint_series_manager = self.PAINT_SERIES_MANAGER()
         self.paint_series_manager.connect("add-paint-colours", self._add_colours_to_mixer_cb)
+        self.connect("key-press-event", self.handle_key_press_cb)
         menubar.insert(self.paint_series_manager.menu, 1)
         self.show_all()
         self.recalculate_colour([])
+
+    def handle_key_press_cb(self, widget, event):
+        if event.get_state() & Gdk.ModifierType.CONTROL_MASK:
+            if event.keyval in [Gdk.KEY_q, Gdk.KEY_Q]:
+                widget._quit_mixer()
+                return True
+        return False
+
     def _paned_notify_cb(self, widget, parameter):
         if parameter.name == "position":
             if isinstance(widget, Gtk.HPaned):
                 recollect.set("mixer", "hpaned_position", str(widget.get_position()))
             else:
                 recollect.set("mixer", "vpaned_position", str(widget.get_position()))
+
     def populate_action_groups(self):
         """
         Set up the actions for this component
@@ -1038,8 +1048,9 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin):
             _("Remove all unused paints from the mixer."),
             self._remove_unused_paints_cb),
             ("quit_mixer", Gtk.STOCK_QUIT, None, None,
-            _("Quit this program."),
-            self._quit_mixer_cb),
+             _("Quit this program."),
+             lambda _action: self._quit_mixer()
+            ),
             ("open_reference_image_viewer", None, _("Open Image Viewer"), None,
             _("Open a tool for viewing reference images."),
             self._open_reference_image_viewer_cb),
@@ -1243,7 +1254,7 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin):
         Launch a window containing a reference image viewer
         """
         ReferenceImageViewer(self.get_toplevel()).show()
-    def _quit_mixer_cb(self, _action):
+    def _quit_mixer(self):
         """
         Exit the program
         """

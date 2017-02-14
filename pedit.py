@@ -444,6 +444,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
     </ui>
     """
     AC_HAS_COLOUR, AC_NOT_HAS_COLOUR, AC_HAS_FILE, AC_ID_READY, AC_MASK = actions.ActionCondns.new_flags_and_mask(4)
+
     def __init__(self):
         Gtk.HPaned.__init__(self)
         actions.CAGandUIManager.__init__(self)
@@ -488,10 +489,38 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         self.pack2(vbox, resize=True, shrink=False)
         self.set_position(recollect.get("editor", "hpaned_position"))
         self.connect("notify", self._notify_cb)
+        self.connect("key-press-event", self.handle_key_press_cb)
         self.show_all()
+
     def _notify_cb(self, widget, parameter):
         if parameter.name == "position":
             recollect.set("editor", "hpaned_position", str(widget.get_position()))
+
+    def handle_key_press_cb(self, widget, event):
+        if event.get_state() & Gdk.ModifierType.CONTROL_MASK:
+            if event.keyval in [Gdk.KEY_n, Gdk.KEY_N]:
+                widget._start_new_paint_series()
+                return True
+            elif event.keyval in [Gdk.KEY_o, Gdk.KEY_O]:
+                widget._open_paint_series_file()
+                return True
+            elif event.keyval in [Gdk.KEY_s, Gdk.KEY_S]:
+                if widget.id_is_ready:
+                    if widget.file_path is None:
+                        widget._save_paint_series_as_file()
+                    else:
+                        widget._save_paint_series_to_file()
+                else:
+                    widget.alert_user(_("Series identification data is incomplete."))
+                return True
+            elif event.keyval in [Gdk.KEY_w, Gdk.KEY_W]:
+                widget._close_colour_editor()
+                return True
+            elif event.keyval in [Gdk.KEY_t, Gdk.KEY_T]:
+                screen.take_screen_sample()
+                return True
+        return False
+
     def populate_action_groups(self):
         self.action_groups[gpaint.ColourSampleArea.AC_SAMPLES_PASTED].add_actions([
             ("automatch_sample_images_max_chroma", None, _("Auto Match (Max Chroma)"), None,
@@ -518,13 +547,15 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         ])
         self.action_groups[self.AC_HAS_FILE|self.AC_ID_READY].add_actions([
             ("save_paint_series_to_file", Gtk.STOCK_SAVE, None, None,
-            _("Save the current series definition to file."),
-            self._save_paint_series_to_file_cb),
+             _("Save the current series definition to file."),
+             lambda _action: self._save_paint_series_to_file()
+            ),
         ])
         self.action_groups[self.AC_ID_READY].add_actions([
             ("save_paint_series_as_file", Gtk.STOCK_SAVE_AS, None, None,
-            _("Save the current series definition to a user chosen file."),
-            self._save_paint_series_as_file_cb),
+             _("Save the current series definition to a user chosen file."),
+             lambda _action: self._save_paint_series_as_file()
+            ),
         ])
         # TODO: make some of these conditional
         self.action_groups[actions.AC_DONT_CARE].add_actions([
@@ -534,21 +565,30 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
             _("Reset the colour editor to its default state."),
             self._reset_colour_editor_cb),
             ("open_paint_series_file", Gtk.STOCK_OPEN, None, None,
-            _("Load a paint series from a file for editing."),
-            self._open_paint_series_file_cb),
+             _("Load a paint series from a file for editing."),
+             lambda _action: self._open_paint_series_file()
+            ),
             ("take_screen_sample", None, _("Take Sample"), None,
-            _("Take a sample of an arbitrary selected section of the screen and add it to the clipboard."),
-            lambda _action: screen.take_screen_sample()),
+             _("Take a sample of an arbitrary selected section of the screen and add it to the clipboard."),
+             lambda _action: screen.take_screen_sample()
+            ),
             ("open_sample_viewer", None, _("Open Sample Viewer"), None,
             _("Open a graphics file containing colour samples."),
             self._open_sample_viewer_cb),
             ("close_colour_editor", Gtk.STOCK_CLOSE, None, None,
-            _("Close this window."),
-            self._close_colour_editor_cb),
+             _("Close this window."),
+             lambda _action: self._close_colour_editor()
+            ),
             ("new_paint_series", Gtk.STOCK_NEW, None, None,
-            _("Start a new paint colour series."),
-            self._new_paint_series_cb),
+             _("Start a new paint colour series."),
+             lambda _action: self._start_new_paint_series()
+            ),
         ])
+
+    @property
+    def id_is_ready(self):
+        return self.manufacturer_name.get_text_length() > 0 and self.series_name.get_text_length() > 0
+
     def get_masked_condns(self):
         condns = 0
         if self.current_colour is None:
@@ -557,9 +597,10 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
             condns |= self.AC_HAS_COLOUR
         if self.file_path is not None:
             condns |= self.AC_HAS_FILE
-        if self.manufacturer_name.get_text_length() > 0 and self.series_name.get_text_length() > 0:
+        if self.id_is_ready:
             condns |= self.AC_ID_READY
         return actions.MaskedCondns(condns, self.AC_MASK)
+
     def unsaved_changes_ok(self):
         """
         Check that the last saved definition is up to date
@@ -586,20 +627,23 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         elif response == UnsavedChangesDialogue.CONTINUE_UNSAVED:
             return True
         elif self.file_path is not None:
-            self.save_to_file(None)
+            self._save_paint_series_to_file()
         else:
-            self._save_paint_series_as_file_cb(None)
+            self._save_paint_series_as_file()
         return True
+
     def _paint_editor_change_cb(self, widget, *args):
         """
         Update actions' "enabled" statuses based on paint editor condition
         """
         self.action_groups.update_condns(widget.get_masked_condns())
+
     def _sample_change_cb(self, widget, *args):
         """
         Update actions' "enabled" statuses based on sample area condition
         """
         self.action_groups.update_condns(widget.get_masked_condns())
+
     def _id_changed_cb(self, widget, *args):
         """
         Update actions' "enabled" statuses based on manufacturer and
@@ -612,6 +656,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         else:
             condns = self.AC_ID_READY
         self.action_groups.update_condns(actions.MaskedCondns(condns, self.AC_ID_READY))
+
     def set_current_colour(self, colour):
         """
         Set a reference to the colour currently being edited and
@@ -621,6 +666,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         mask = self.AC_NOT_HAS_COLOUR + self.AC_HAS_COLOUR
         condns = self.AC_NOT_HAS_COLOUR if colour is None else self.AC_HAS_COLOUR
         self.action_groups.update_condns(actions.MaskedCondns(condns, mask))
+
     def set_file_path(self, file_path):
         """
         Set the file path for the paint colour series currently being
@@ -632,6 +678,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         if condns:
             recollect.set("editor", "last_file", file_path)
         self.emit("file_changed", self.file_path)
+
     def colour_edit_state_ok(self):
         if self.current_colour is None:
             if self.paint_editor.colour_name.get_text_length() > 0:
@@ -655,6 +702,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
                 else:
                     return response == UnacceptedChangesDialogue.CONTINUE_DISCARDING_CHANGES
         return True
+
     def _edit_selected_colour_cb(self, _action):
         """
         Load the selected paint colour into the editor
@@ -663,14 +711,17 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
             paint = self.paint_colours.paint_list.get_selected_paints()[0]
             self.paint_editor.set_paint(paint)
             self.set_current_colour(paint)
+
     def _load_wheel_colour_into_editor_cb(self, _action, wheel):
         if self.colour_edit_state_ok():
             paint = wheel.popup_colour
             if paint:
                 self.paint_editor.set_paint(paint)
                 self.set_current_colour(paint)
+
     def _ask_overwrite_ok(self, name):
         return self.ask_ok_cancel(_("A colour with the name \"{0}\" already exists.\n Overwrite?").format(name))
+
     def _accept_colour_changes_cb(self, _widget=None):
         edited_colour = self.paint_editor.get_paint()
         if edited_colour.name != self.current_colour.name:
@@ -686,11 +737,13 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         self.paint_colours.add_paint(edited_colour)
         self.current_colour = edited_colour
         self.paint_colours.queue_draw()
+
     def _reset_colour_editor_cb(self, _widget):
         if self.colour_edit_state_ok():
             self.paint_editor.reset()
             self.set_current_colour(None)
-    def _new_paint_series_cb(self, _action):
+
+    def _start_new_paint_series(self):
         """
         Throw away the current data and prepare to create a new series
         """
@@ -703,6 +756,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         self.set_file_path(None)
         self.set_current_colour(None)
         self.saved_hash = None
+
     def _add_colour_into_series_cb(self, _widget):
         new_colour = self.paint_editor.get_paint()
         old_colour = self.paint_colours.get_paint_with_name(new_colour.name)
@@ -717,10 +771,13 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         else:
             self.paint_colours.add_paint(new_colour)
             self.set_current_colour(new_colour)
+
     def _automatch_sample_images_max_chroma_cb(self, _widget):
         self.paint_editor.auto_match_sample(raw=False)
+
     def _automatch_sample_images_raw_cb(self, _widget):
         self.paint_editor.auto_match_sample(raw=True)
+
     def load_fm_file(self, filepath):
         try:
             with open(filepath, "r") as fobj:
@@ -742,7 +799,8 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         self.series_name.set_text(series.series_id.name)
         self.set_file_path(filepath)
         self.saved_hash = hashlib.sha1(text.encode()).digest()
-    def _open_paint_series_file_cb(self, _action):
+
+    def _open_paint_series_file(self):
         """
         Ask the user for the name of the file then open it.
         """
@@ -756,11 +814,13 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         file_path = self.ask_file_path(_("Paint Series Description File:"), suggestion=lastdir, existing=True)
         if file_path:
             self.load_fm_file(file_path)
+
     def _open_sample_viewer_cb(self, _action):
         """
         Launch a window containing a sample viewer
         """
         SampleViewer(self.get_toplevel()).show()
+
     def get_definition_text(self):
         """
         Get the text sefinition of the current series
@@ -769,7 +829,10 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         name = self.series_name.get_text()
         series = vpaint.PaintSeries(maker=maker, name=name, paints=self.paint_colours.iter_paints())
         return series.definition_text()
-    def save_to_file(self, filepath=None):
+
+    def _save_paint_series_to_file(self, filepath=None):
+        """Save the paint series to the current or nominated file
+        """
         if filepath is None:
             filepath = self.file_path
         definition = self.get_definition_text()
@@ -781,12 +844,8 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         # save was successful so set our filepath
         self.set_file_path(filepath)
         self.saved_hash = hashlib.sha1(definition.encode()).digest()
-    def _save_paint_series_to_file_cb(self, _action):
-        """
-        Save the paint series to the current file
-        """
-        self.save_to_file(None)
-    def _save_paint_series_as_file_cb(self, _action):
+
+    def _save_paint_series_as_file(self):
         """
         Ask the user for the name of the file then open it.
         """
@@ -798,8 +857,9 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         file_path = self.ask_file_path(_("Paint Series Description File:"), suggestion=lastdir, existing=False)
         if file_path:
             if not os.path.exists(file_path) or self.ask_yes_no(_("{}: already exists. Overwrite?").format(file_path)):
-                self.save_to_file(file_path)
-    def _close_colour_editor_cb(self, _action):
+                self._save_paint_series_to_file(file_path)
+
+    def _close_colour_editor(self):
         """
         Close the Paint Series Editor
         """
@@ -807,6 +867,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
             return
         self.__closed = True
         self.get_toplevel().destroy()
+
     def _exit_colour_editor_cb(self, _action):
         """
         Exit the Paint Series Editor
@@ -814,6 +875,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         if not self.__closed and not self.unsaved_changes_ok():
             return
         Gtk.main_quit()
+
 GObject.signal_new("file_changed", PaintSeriesEditor, GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_PYOBJECT,))
 
 
@@ -837,6 +899,7 @@ class SampleViewer(Gtk.Window, actions.CAGandUIManager):
     </ui>
     """
     TITLE_TEMPLATE = _("mcmmtk: Colour Sample: {}")
+
     def __init__(self, parent):
         Gtk.Window.__init__(self, Gtk.WindowType.TOPLEVEL)
         actions.CAGandUIManager.__init__(self)
@@ -870,6 +933,7 @@ class SampleViewer(Gtk.Window, actions.CAGandUIManager):
         self.connect("size-allocate", self._size_allocation_cb)
         self.show_all()
         self.pixbuf_view.set_pixbuf(pixbuf)
+
     def populate_action_groups(self):
         self.action_groups[actions.AC_DONT_CARE].add_actions([
             ("colour_sample_file_menu", None, _("File")),
@@ -880,8 +944,10 @@ class SampleViewer(Gtk.Window, actions.CAGandUIManager):
             _("Close this window."),
             self._close_colour_sample_viewer_cb),
         ])
+
     def _size_allocation_cb(self, widget, allocation):
         recollect.set("sample_viewer", "last_size", "({0.width}, {0.height})".format(allocation))
+
     def _open_colour_sample_file_cb(self, _action):
         """
         Ask the user for the name of the file then open it.
@@ -915,5 +981,6 @@ class SampleViewer(Gtk.Window, actions.CAGandUIManager):
             self.pixbuf_view.set_pixbuf(pixbuf)
         else:
             dlg.destroy()
+
     def _close_colour_sample_viewer_cb(self, _action):
         self.get_toplevel().destroy()

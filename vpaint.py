@@ -76,7 +76,7 @@ class HCV:
         # chroma value is zero (useful for displaying chroma values)
         if self.__hue.is_grey:
             return self.value_rgb
-        mcv = self.__hue.max_chroma_value()
+        mcv = self.__hue.max_chroma_value
         dc = 1.0 - self.__chroma
         if dc != 0.0:
             return self.RGB.WHITE * ((self.__value - mcv * self.__chroma) / dc)
