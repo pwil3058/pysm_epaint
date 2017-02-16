@@ -1125,6 +1125,8 @@ class RGBEntryBox(Gtk.HBox):
                 self.red.entry.grab_focus()
 GObject.signal_new("colour-changed", RGBEntryBox, GObject.SignalFlags.RUN_LAST, None, ())
 
+recollect.define("paint_colour_information", "last_size", recollect.Defn(str, ""))
+
 class PaintColourInformationDialogue(dialogue.Dialog):
     """A dialog to display the detailed information for a paint colour
     """

@@ -636,6 +636,8 @@ class PaintSelector(Gtk.VBox):
         self.emit("add-paint-colours", [wheel.popup_colour])
 GObject.signal_new("add-paint-colours", PaintSelector, GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_PYOBJECT,))
 
+recollect.define("paint_series_selector", "last_file", recollect.Defn(str, os.path.join(SYS_DATA_DIR_PATH, 'ideal.psd')))
+
 class PaintSeriesManager(GObject.GObject, dialogue.ReporterMixin):
     PAINT_SELECTOR = None
     def __init__(self):
@@ -825,6 +827,9 @@ class ModelPaintSelector(PaintSelector):
 class ModelPaintSeriesManager(PaintSeriesManager):
     PAINT_SELECTOR = ModelPaintSelector
 
+recollect.define('reference_image_viewer', 'last_file', recollect.Defn(str, ''))
+recollect.define('reference_image_viewer', 'last_size', recollect.Defn(str, ''))
+
 class ReferenceImageViewer(Gtk.Window, actions.CAGandUIManager):
     """
     A top level window for a colour sample file
@@ -931,6 +936,9 @@ def pango_rgb_str(rgb, bits_per_channel=16):
     for i in range(3):
         string += '{0:02X}'.format(rgb[i] >> (bits_per_channel - 8))
     return string
+
+recollect.define("mixer", "hpaned_position", recollect.Defn(int, -1))
+recollect.define("mixer", "vpaned_position", recollect.Defn(int, -1))
 
 class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin):
     PAINT = None
