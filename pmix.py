@@ -46,6 +46,7 @@ from . import gpaint
 from . import lexicon
 from . import vpaint
 from . import pedit
+from . import standards
 
 __all__ = []
 __author__ = "Peter Williams <pwil3058@gmail.com>"
@@ -958,6 +959,7 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin):
         actions.CAGandUIManager.__init__(self)
         self.action_groups.update_condns(actions.MaskedCondns(self.AC_DONT_HAVE_TARGET, self.AC_TARGET_MASK))
         # Components
+        self.standards_manager = standards.PaintStandardsManager()
         self.notes = entries.TextEntryAutoComplete(lexicon.GENERAL_WORDS_LEXICON)
         self.notes.connect("new-words", lexicon.new_general_words_cb)
         self.next_name_label = Gtk.Label(label=_("#???:"))
@@ -979,6 +981,7 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin):
         self.wheels.set_wheels_colour_info_acb(self._show_wheel_colour_details_cb)
         self.buttons = self.action_groups.create_action_button_box([
             "new_mixed_colour",
+            "new_mixed_standard_colour",
             "accept_mixed_colour",
             "simplify_contributions",
             "reset_contributions",
@@ -1020,6 +1023,7 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin):
         self.paint_series_manager.connect("add-paint-colours", self._add_colours_to_mixer_cb)
         self.connect("key-press-event", self.handle_key_press_cb)
         menubar.insert(self.paint_series_manager.menu, 1)
+        menubar.insert(self.standards_manager.menu, 2)
         self.show_all()
         self.recalculate_colour([])
 
@@ -1073,8 +1077,13 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin):
         ])
         self.action_groups[self.AC_DONT_HAVE_TARGET].add_actions([
             ("new_mixed_colour", None, _("New"), None,
-            _("Start working on a new mixed colour."),
-            self._new_mixed_colour_cb),
+             _("Start working on a new mixed colour."),
+             self._new_mixed_colour_cb
+            ),
+            ("new_mixed_standard_colour", None, _("New (From Standards)"), None,
+             _("Start working on a new mixed colour to replicate an existing standard."),
+             lambda _action: self._new_mixed_standard_colour()
+            ),
         ])
     def _show_wheel_colour_details_cb(self, _action, wheel):
         colour = wheel.popup_colour
@@ -1173,6 +1182,16 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin):
         self.action_groups.update_condns(actions.MaskedCondns(self.AC_DONT_HAVE_TARGET, self.AC_TARGET_MASK))
         self.next_name_label.set_text(_("#???:"))
         self.current_colour_description.set_text("")
+    def _set_new_mixed_colour(self, *, description, colour):
+        self.current_colour_description.set_text(description)
+        self.current_target_colour = colour
+        self.mixpanel.set_target_colour(self.current_target_colour)
+        self.hcvw_display.set_target_colour(self.current_target_colour)
+        self.wheels.set_crosshair(self.current_target_colour)
+        self.paint_series_manager.set_target_colour(self.current_target_colour)
+        self.action_groups.update_condns(actions.MaskedCondns(self.AC_HAVE_TARGET, self.AC_TARGET_MASK))
+        self.next_name_label.set_text(_("#{:03d}:").format(self.mixed_count + 1))
+        self.paint_colours.set_sensitive(True)
     def _new_mixed_colour_cb(self,_action):
         class Dialogue(NewMixedColourDialogue):
             COLOUR = self.PAINT.COLOUR
@@ -1180,16 +1199,13 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin):
         if dlg.run() == Gtk.ResponseType.ACCEPT:
             descr = dlg.colour_description.get_text()
             assert len(descr) > 0
-            self.mixpanel.set_target_colour(dlg.colour_specifier.colour)
-            self.current_colour_description.set_text(descr)
-            self.current_target_colour = dlg.colour_specifier.colour
-            self.hcvw_display.set_target_colour(self.current_target_colour)
-            self.wheels.set_crosshair(self.current_target_colour)
-            self.paint_series_manager.set_target_colour(self.current_target_colour)
-            self.action_groups.update_condns(actions.MaskedCondns(self.AC_HAVE_TARGET, self.AC_TARGET_MASK))
-            self.next_name_label.set_text(_("#{:03d}:").format(self.mixed_count + 1))
-            self.paint_colours.set_sensitive(True)
+            self._set_new_mixed_colour(description=descr, colour=dlg.colour_specifier.colour)
         dlg.destroy()
+    def _new_mixed_standard_colour(self):
+        standard_paint_id = self.standards_manager.ask_standard_paint_name()
+        if standard_paint_id:
+            standard_paint = self.standards_manager.get_standard_paint(standard_paint_id)
+            self._set_new_mixed_colour(description=standard_paint_id, colour=standard_paint.colour)
     def reset_parts(self):
         self.paint_colours.reset_parts()
     def _reset_contributions_cb(self, _action):

@@ -419,6 +419,8 @@ recollect.define("editor", "last_file", recollect.Defn(str, ""))
 class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMixin, dialogue.AskerMixin):
     PAINT_EDITOR = None
     PAINT_LIST_NOTEBOOK = None
+    PAINT_COLLECTION = vpaint.PaintSeries
+    RECOLLECT_SECTION = "editor"
     BUTTONS = [
             "add_colour_into_series",
             "accept_colour_changes",
@@ -467,11 +469,11 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         self.manufacturer_name = entries.TextEntryAutoComplete(lexicon.GENERAL_WORDS_LEXICON, multiword=False)
         self.manufacturer_name.connect("new-words", lexicon.new_general_words_cb)
         self.manufacturer_name.connect("changed", self._id_changed_cb)
-        mnlabel = Gtk.Label(label=_("Manufacturer:"))
+        mnlabel = Gtk.Label(label=_(self.PAINT_COLLECTION.OWNER_LABEL + ":"))
         self.series_name = entries.TextEntryAutoComplete(lexicon.GENERAL_WORDS_LEXICON)
         self.series_name.connect("new-words", lexicon.new_general_words_cb)
         self.series_name.connect("changed", self._id_changed_cb)
-        snlabel = Gtk.Label(label=_("Series:"))
+        snlabel = Gtk.Label(label=_(self.PAINT_COLLECTION.NAME_LABEL + ":"))
         self.set_current_colour(None)
         # Now arrange them
         vbox = Gtk.VBox()
@@ -487,14 +489,14 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         vbox.pack_start(self.paint_editor, expand=True, fill=True, padding=0)
         vbox.pack_start(self.buttons, expand=False, fill=True, padding=0)
         self.pack2(vbox, resize=True, shrink=False)
-        self.set_position(recollect.get("editor", "hpaned_position"))
+        self.set_position(recollect.get(self.RECOLLECT_SECTION, "hpaned_position"))
         self.connect("notify", self._notify_cb)
         self.connect("key-press-event", self.handle_key_press_cb)
         self.show_all()
 
     def _notify_cb(self, widget, parameter):
         if parameter.name == "position":
-            recollect.set("editor", "hpaned_position", str(widget.get_position()))
+            recollect.set(self.RECOLLECT_SECTION, "hpaned_position", str(widget.get_position()))
 
     def handle_key_press_cb(self, widget, event):
         if event.get_state() & Gdk.ModifierType.CONTROL_MASK:
@@ -676,7 +678,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         condns = 0 if file_path is None else self.AC_HAS_FILE
         self.action_groups.update_condns(actions.MaskedCondns(condns, self.AC_HAS_FILE))
         if condns:
-            recollect.set("editor", "last_file", file_path)
+            recollect.set(self.RECOLLECT_SECTION, "last_file", file_path)
         self.emit("file_changed", self.file_path)
 
     def colour_edit_state_ok(self):
@@ -785,8 +787,8 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         except IOError as edata:
             return self.report_io_error(edata)
         try:
-            series = vpaint.PaintSeries.fm_definition(text)
-        except vpaint.PaintSeries.ParseError as edata:
+            series = self.PAINT_COLLECTION.fm_definition(text)
+        except self.PAINT_COLLECTION.ParseError as edata:
             return self.alert_user(_("Format Error:  {}: {}").format(edata, filepath))
         # All OK so clear the paint editor and ditch the current colours
         self.paint_editor.reset()
@@ -809,7 +811,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         if self.file_path:
             lastdir = os.path.dirname(self.file_path) + os.sep
         else:
-            last_file = recollect.get("editor", "last_file")
+            last_file = recollect.get(self.RECOLLECT_SECTION, "last_file")
             lastdir = os.path.dirname(last_file) + os.sep if last_file else None
         file_path = self.ask_file_path(_("Paint Series Description File:"), suggestion=lastdir, existing=True)
         if file_path:
@@ -827,7 +829,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         """
         maker = self.manufacturer_name.get_text()
         name = self.series_name.get_text()
-        series = vpaint.PaintSeries(maker=maker, name=name, paints=self.paint_colours.iter_paints())
+        series = self.PAINT_COLLECTION(maker=maker, name=name, paints=self.paint_colours.iter_paints())
         return series.definition_text()
 
     def _save_paint_series_to_file(self, filepath=None):
@@ -852,7 +854,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         if self.file_path:
             lastdir = os.path.dirname(self.file_path) + os.sep
         else:
-            last_file = recollect.get("editor", "last_file")
+            last_file = recollect.get(self.RECOLLECT_SECTION, "last_file")
             lastdir = os.path.dirname(last_file) if last_file else None
         file_path = self.ask_file_path(_("Paint Series Description File:"), suggestion=lastdir, existing=False)
         if file_path:

@@ -219,6 +219,9 @@ MODEL_NC_MATCHER = re.compile(r'^NamedColour\(name=(".+"), rgb=(.+), transparenc
 ART_NC_MATCHER = re.compile(r'^NamedColour\(name=(".+"), rgb=(.+), transparency="(.+)", permanence="(.+)"\)$')
 
 class PaintSeries:
+    # No i18n for these strings
+    OWNER_LABEL = "Manufacturer"
+    NAME_LABEL = "Series"
     class ParseError(Exception):
         pass
     def __init__(self, maker, name, paints=None):
@@ -236,9 +239,8 @@ class PaintSeries:
     def add_paint(self, paint):
         self.__paints[paint.name] = paint
     def definition_text(self):
-        # No i18n for these strings
-        string = "Manufacturer: {0}\n".format(self.series_id.maker)
-        string += "Series: {0}\n".format(self.series_id.name)
+        string = "{0}: {1}\n".format(self.OWNER_LABEL, self.series_id.maker)
+        string += "{0}: {1}\n".format(self.NAME_LABEL, self.series_id.name)
         for paint in sorted(self.__paints.values(), key=lambda x: x.name):
             string += "{0}\n".format(repr(paint))
         return string
