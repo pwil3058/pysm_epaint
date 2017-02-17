@@ -61,7 +61,7 @@ class ColouredRectangle(Gtk.DrawingArea):
         cairo_ctxt.paint()
         return True
 
-class ColourSampleArea(Gtk.DrawingArea, actions.CAGandUIManager):
+class ColourSampleArea(Gtk.Frame, actions.CAGandUIManager):
     """A coloured drawing area onto which samples can be dropped.
     """
     UI_DESCR = """
@@ -74,7 +74,10 @@ class ColourSampleArea(Gtk.DrawingArea, actions.CAGandUIManager):
     """
     AC_SAMPLES_PASTED, AC_MASK = actions.ActionCondns.new_flags_and_mask(1)
     def __init__(self, single_sample=False, default_bg=None):
-        Gtk.DrawingArea.__init__(self)
+        Gtk.Frame.__init__(self)
+
+        self._da = Gtk.DrawingArea()
+        self.add(self._da)
 
         self.set_size_request(100, 100)
         self._ptr_x = self._ptr_y = 100
@@ -82,9 +85,9 @@ class ColourSampleArea(Gtk.DrawingArea, actions.CAGandUIManager):
         self._single_sample = single_sample
         self.default_bg_colour = self.bg_colour = rgbh.RGBPN.WHITE if default_bg is None else default_bg
 
-        self.add_events(Gdk.EventMask.POINTER_MOTION_MASK|Gdk.EventMask.BUTTON_PRESS_MASK)
-        self.connect("draw", self.expose_cb)
-        self.connect("motion_notify_event", self._motion_notify_cb)
+        self._da.add_events(Gdk.EventMask.POINTER_MOTION_MASK|Gdk.EventMask.BUTTON_PRESS_MASK)
+        self._da.connect("draw", self.expose_cb)
+        self._da.connect("motion_notify_event", self._motion_notify_cb)
 
         actions.CAGandUIManager.__init__(self, popup="/colour_sample_popup")
     def populate_action_groups(self):
