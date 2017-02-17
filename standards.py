@@ -33,12 +33,20 @@ from . import vpaint
 
 from .vpaint import ModelPaint
 
-from .. import CONFIG_DIR_PATH
+from .. import CONFIG_DIR_PATH, SYS_BASE_DIR_PATH
 
 __all__ = []
 __author__ = "Peter Williams <pwil3058@gmail.com>"
 
-STANDARDS_FILES_FILE_PATH = os.sep.join([CONFIG_DIR_PATH, "paint_standards_files"])
+STANDARDS_FILES_FILE_PATH = os.path.join(CONFIG_DIR_PATH, "paint_standards_files")
+SYS_STANDARDS_DIR_PATH = os.path.join(SYS_BASE_DIR_PATH, "standards")
+
+if not os.path.exists(STANDARDS_FILES_FILE_PATH):
+    with open(STANDARDS_FILES_FILE_PATH, "w") as f_obj:
+        for item in os.listdir(SYS_STANDARDS_DIR_PATH):
+            path = os.path.join(SYS_STANDARDS_DIR_PATH, item)
+            if os.path.isfile(path):
+                f_obj.write(path + "\n")
 
 def read_standards_file_names():
     standards_file_names = []
