@@ -184,7 +184,7 @@ class ColourMatchArea(Gtk.DrawingArea):
     def set_bg_colour(self, colour):
         """Set the drawing area to the specified colour
         """
-        self.bg_colour = colour
+        self.bg_colour = colour if colour else self.default_bg_colour
         self.queue_draw()
     def set_target_colour(self, colour):
         """Set the drawing area to the specified colour
@@ -330,10 +330,10 @@ class HueDisplay(GenericAttrDisplay):
         height = widget.get_allocated_height()
         spread = 2 * math.pi
         if backwards:
-            start_hue_angle = self.colour.hue.angle - spread / 2
+            start_hue_angle = centre_hue.angle - spread / 2
             delta_hue_angle = spread / width
         else:
-            start_hue_angle = self.colour.hue.angle + spread / 2
+            start_hue_angle = centre_hue.angle + spread / 2
             delta_hue_angle = -spread / width
         linear_gradient = cairo.LinearGradient(0, 0, width, height)
         for i in range(width):

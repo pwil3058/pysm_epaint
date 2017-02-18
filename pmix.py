@@ -1165,6 +1165,8 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin):
             self.hcvw_display.set_colour(new_colour)
             self.action_groups.update_condns(actions.MaskedCondns(self.AC_HAVE_MIXTURE, self.AC_MASK))
         else:
+            self.mixpanel.set_bg_colour(None)
+            self.hcvw_display.set_colour(None)
             self.action_groups.update_condns(actions.MaskedCondns(0, self.AC_MASK))
     def _accept_mixed_colour_cb(self,_action):
         self.simplify_parts()
