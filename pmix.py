@@ -46,7 +46,6 @@ from . import gpaint
 from . import lexicon
 from . import vpaint
 from . import pedit
-from . import standards
 
 __all__ = []
 __author__ = "Peter Williams <pwil3058@gmail.com>"
@@ -967,6 +966,7 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin):
         actions.CAGandUIManager.__init__(self)
         self.action_groups.update_condns(actions.MaskedCondns(self.AC_DONT_HAVE_TARGET, self.AC_TARGET_MASK))
         # Components
+        from . import standards
         self.standards_manager = standards.PaintStandardsManager()
         self.notes = entries.TextEntryAutoComplete(lexicon.GENERAL_WORDS_LEXICON)
         self.notes.connect("new-words", lexicon.new_general_words_cb)
