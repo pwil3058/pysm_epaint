@@ -302,14 +302,15 @@ class PaintPartsSpinButtonBox(Gtk.VBox):
         Return a list of paint paints with non zero parts
         """
         return [spinbutton.get_blob() for spinbutton in self.__spinbuttons if spinbutton.get_parts() > 0]
-    def simplify_parts(self):
-        gcd = mathx.gcd(*[sb.get_parts() for sb in self.__spinbuttons])
-        if gcd is not None and gcd > 1:
+    def divide_parts(self, divisor):
+        if divisor is not None and divisor > 1:
             self.__suppress_change_notification = True
             for spinbutton in self.__spinbuttons:
-                spinbutton.divide_parts(gcd)
+                spinbutton.divide_parts(divisor)
             self.__suppress_change_notification = False
             self.emit("contributions-changed", self.get_contributions())
+    def simplify_parts(self):
+        self.divide_parts(mathx.gcd(*[sb.get_parts() for sb in self.__spinbuttons]))
     def reset_parts(self):
         """
         Reset all spinbutton values to zero
