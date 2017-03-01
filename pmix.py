@@ -940,7 +940,7 @@ def pango_rgb_str(rgb, bits_per_channel=16):
 recollect.define("mixer", "hpaned_position", recollect.Defn(int, -1))
 recollect.define("mixer", "vpaned_position", recollect.Defn(int, -1))
 
-class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin):
+class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogue.ReporterMixin):
     PAINT = None
     MATCHED_PAINT_LIST_VIEW = None
     PAINT_SERIES_MANAGER = None
@@ -1216,7 +1216,10 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin):
         standard_paint_id = self.standards_manager.ask_standard_paint_name()
         if standard_paint_id:
             standard_paint = self.standards_manager.get_standard_paint(standard_paint_id)
-            self._set_new_mixed_colour(description=standard_paint_id, colour=standard_paint.colour)
+            if standard_paint:
+                self._set_new_mixed_colour(description=standard_paint_id, colour=standard_paint.colour)
+            else:
+                self.inform_user(_("{}: unknown paint standard identifier").format(standard_paint_id))
     def reset_parts(self):
         self.paint_colours.reset_parts()
     def _reset_contributions_cb(self, _action):

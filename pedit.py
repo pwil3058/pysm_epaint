@@ -451,6 +451,9 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         Gtk.HPaned.__init__(self)
         actions.CAGandUIManager.__init__(self)
         #
+        self._file_path_text = Gtk.Entry()
+        self._file_status_indicator = Gtk.Button.new_from_icon_name(Gtk.STOCK_NO, Gtk.IconSize.BUTTON)
+        self._file_status_indicator.connect("clicked", lambda _button: self._smart_save())
         self.set_file_path(None)
         self.set_current_colour(None)
         self.saved_hash = None
@@ -477,6 +480,11 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         self.set_current_colour(None)
         # Now arrange them
         vbox = Gtk.VBox()
+        hbox = Gtk.HBox()
+        hbox.pack_start(Gtk.Label(_("Current File:")), expand=False, fill=True, padding=0)
+        hbox.pack_start(self._file_path_text, expand=True, fill=True, padding=0)
+        hbox.pack_start(self._file_status_indicator, expand=False, fill=True, padding=0)
+        vbox.pack_start(hbox, expand=False, fill=True, padding=0)
         table = Gtk.Table(rows=2, columns=2, homogeneous=False)
         table.attach(mnlabel, 0, 1, 0, 1, xoptions=0)
         table.attach(snlabel, 0, 1, 1, 2, xoptions=0)
@@ -498,6 +506,15 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         if parameter.name == "position":
             recollect.set(self.RECOLLECT_SECTION, "hpaned_position", str(widget.get_position()))
 
+    def _smart_save(self):
+        if self.id_is_ready:
+            if self.file_path is None:
+                self._save_paint_series_as_file()
+            else:
+                self._save_paint_series_to_file()
+        else:
+            self.alert_user(_("Series identification data is incomplete."))
+
     def handle_key_press_cb(self, widget, event):
         if event.get_state() & Gdk.ModifierType.CONTROL_MASK:
             if event.keyval in [Gdk.KEY_n, Gdk.KEY_N]:
@@ -507,13 +524,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
                 widget._open_paint_series_file()
                 return True
             elif event.keyval in [Gdk.KEY_s, Gdk.KEY_S]:
-                if widget.id_is_ready:
-                    if widget.file_path is None:
-                        widget._save_paint_series_as_file()
-                    else:
-                        widget._save_paint_series_to_file()
-                else:
-                    widget.alert_user(_("Series identification data is incomplete."))
+                widget._smart_save()
                 return True
             elif event.keyval in [Gdk.KEY_w, Gdk.KEY_W]:
                 widget._close_colour_editor()
@@ -603,6 +614,10 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
             condns |= self.AC_ID_READY
         return actions.MaskedCondns(condns, self.AC_MASK)
 
+    def _definition_matches_hash(self):
+        dtext = self.get_definition_text()
+        return hashlib.sha1(dtext.encode()).digest() == self.saved_hash
+
     def unsaved_changes_ok(self):
         """
         Check that the last saved definition is up to date
@@ -614,8 +629,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         coll = len(self.paint_colours)
         if manl == 0 and serl == 0 and coll == 0:
             return True
-        dtext = self.get_definition_text()
-        if hashlib.sha1(dtext.encode()).digest() == self.saved_hash:
+        if self._definition_matches_hash():
             return True
         parent = self.get_toplevel()
         dlg = UnsavedChangesDialogue(
@@ -658,6 +672,10 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         else:
             condns = self.AC_ID_READY
         self.action_groups.update_condns(actions.MaskedCondns(condns, self.AC_ID_READY))
+        if self._definition_matches_hash():
+            self._file_status_indicator.set_image(Gtk.Image.new_from_stock(Gtk.STOCk_YES, Gtk.IconSize.BUTTON))
+        else:
+            self._file_status_indicator.set_image(Gtk.Image.new_from_stock(Gtk.STOCK_NO, Gtk.IconSize.BUTTON))
 
     def set_current_colour(self, colour):
         """
@@ -675,6 +693,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         edited and update action conditions for this change
         """
         self.file_path = file_path
+        self._file_path_text.set_text(self.file_path if self.file_path else "")
         condns = 0 if file_path is None else self.AC_HAS_FILE
         self.action_groups.update_condns(actions.MaskedCondns(condns, self.AC_HAS_FILE))
         if condns:
@@ -739,6 +758,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         self.paint_colours.add_paint(edited_colour)
         self.current_colour = edited_colour
         self.paint_colours.queue_draw()
+        self._file_status_indicator.set_image(Gtk.Image.new_from_stock(Gtk.STOCK_NO, Gtk.IconSize.BUTTON))
 
     def _reset_colour_editor_cb(self, _widget):
         if self.colour_edit_state_ok():
@@ -758,6 +778,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         self.set_file_path(None)
         self.set_current_colour(None)
         self.saved_hash = None
+        self._file_status_indicator.set_image(Gtk.Image.new_from_stock(Gtk.STOCK_NO, Gtk.IconSize.BUTTON))
 
     def _add_colour_into_series_cb(self, _widget):
         new_colour = self.paint_editor.get_paint()
@@ -773,6 +794,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         else:
             self.paint_colours.add_paint(new_colour)
             self.set_current_colour(new_colour)
+        self._file_status_indicator.set_image(Gtk.Image.new_from_stock(Gtk.STOCK_NO, Gtk.IconSize.BUTTON))
 
     def _automatch_sample_images_max_chroma_cb(self, _widget):
         self.paint_editor.auto_match_sample(raw=False)
@@ -801,6 +823,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         self.series_name.set_text(series.series_id.name)
         self.set_file_path(filepath)
         self.saved_hash = hashlib.sha1(text.encode()).digest()
+        self._file_status_indicator.set_image(Gtk.Image.new_from_stock(Gtk.STOCK_YES, Gtk.IconSize.BUTTON))
 
     def _open_paint_series_file(self):
         """
@@ -846,6 +869,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         # save was successful so set our filepath
         self.set_file_path(filepath)
         self.saved_hash = hashlib.sha1(definition.encode()).digest()
+        self._file_status_indicator.set_image(Gtk.Image.new_from_stock(Gtk.STOCK_YES, Gtk.IconSize.BUTTON))
 
     def _save_paint_series_as_file(self):
         """

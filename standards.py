@@ -289,6 +289,7 @@ class PaintStandardEditor(pedit.PaintSeriesEditor):
         self.series_name.set_text(series.standard_id.name)
         self.set_file_path(filepath)
         self.saved_hash = hashlib.sha1(text.encode()).digest()
+        self._file_status_indicator.set_image(Gtk.Image.new_from_stock(Gtk.STOCK_YES, Gtk.IconSize.BUTTON))
 
     def get_definition_text(self):
         """
