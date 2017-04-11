@@ -99,7 +99,7 @@ class Mixture:
     def _components_str(self):
         string = _("\nComponents:\n")
         for blob in self.blobs:
-            string += _("\t{0} Part(s): {1}\n").format(blob.parts, blob.colour)
+            string += _("\t{0} Part(s): {1}\n").format(blob.parts, blob.paint)
         return string
     def __str__(self):
         return _("Mixed Colour: ") + Colour.__str__(self) + self._components_str()
@@ -1152,8 +1152,8 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
             string += "<span background=\"{0}\">\t</span> Target Colour\n".format(pango_rgb_str(tc.hue.rgb.rgb16))
             for blob in mc.blobs:
                 string += "{0: 7d}:".format(blob.parts)
-                string += "<span background=\"{0}\">\t</span>".format(pango_rgb_str(blob.colour.rgb16))
-                string += " {0}\n".format(cgi.escape(blob.colour.name))
+                string += "<span background=\"{0}\">\t</span>".format(pango_rgb_str(blob.paint.rgb16))
+                string += " {0}\n".format(cgi.escape(blob.paint.name))
             chunks.append(string)
             string = "" # Necessary because we put header in the first chunk
         return chunks
