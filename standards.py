@@ -95,12 +95,18 @@ class PaintStandard:
         for paint in sorted(self.__paints.values(), key=lambda x: x.name):
             string += "{0}\n".format(repr(paint))
         return string
-    def iter_names(self):
-        return self.__paints.keys()
-    def iter_paints(self):
-        return self.__paints.values()
-    def iter_standard_paints(self):
-        return (StandardPaint(self, value) for value in self.__paints.values())
+    def iter_names(self, ordered=True):
+        if ordered:
+            return (name for name in sorted(self.__paints.keys()))
+        else:
+            return self.__paints.keys()
+    def iter_paints(self, ordered=True):
+        if ordered:
+            return (self.__paints[name] for name in sorted(self.__paints.keys()))
+        else:
+            return self.__paints.values()
+    def iter_standard_paints(self, ordered=True):
+        return (StandardPaint(self, paint) for paint in self.iter_paints(ordered))
     def get_paint(self, name):
         return self.__paints.get(name, None)
     def get_standard_paint(self, name):
@@ -170,8 +176,8 @@ class PaintStandardsManager(dialogue.ReporterMixin, dialogue.AskerMixin):
     def _generate_lexicon(self):
         self.__lexicon = Gtk.ListStore(str)
         for standard in self.__standards_dict.keys():
-            for standard_paint in standard.iter_paints():
-                self.__lexicon.append([standard_paint.name])
+            for standard_paint_name in standard.iter_names():
+                self.__lexicon.append([standard_paint_name])
     def ask_standard_paint_name(self, prompt=_("Standard Paint Id:")):
         return self.ask_text_auto_complete(prompt=prompt, lexicon=self.__lexicon, learn=False)
     def get_standard_paint(self, standard_paint_id):
