@@ -1246,7 +1246,7 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
         """
         Respond to a request from a paint colour to be removed
         """
-        users = self.mixed_colours.get_colour_users(colour)
+        users = self.mixed_colours.get_paint_users(colour)
         if len(users) > 0:
             string = _("Colour: \"{0}\" is used in:\n").format(colour)
             for user in users:
@@ -1271,7 +1271,7 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
     def _remove_unused_paints_cb(self, _action):
         paints = self.paint_colours.get_paints_with_zero_parts()
         for paint in paints:
-            if len(self.mixed_colours.get_colour_users(paint)) == 0:
+            if len(self.mixed_colours.get_paint_users(paint)) == 0:
                 self.del_paint(paint)
     def _print_mixer_cb(self, _action):
         """
