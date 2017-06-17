@@ -1098,6 +1098,8 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
         colour = wheel.popup_colour
         if hasattr(colour, "blobs"):
             self.MIXED_PAINT_INFORMATION_DIALOGUE(colour, self.mixed_colours.get_target_colour(colour)).show()
+        elif isinstance(colour, vpaint.TargetColour):
+            gpaint.TargetColourInformationDialogue(colour).show()
         else:
             gpaint.PaintColourInformationDialogue(colour).show()
         return True
@@ -1178,13 +1180,15 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
         name = _("Mix #{:03d}").format(self.mixed_count)
         notes = self.current_colour_description.get_text()
         new_colour =  self.MIXED_PAINT(blobs=paint_contribs, name=name, notes=notes)
-        self.mixed_colours.append_paint(new_colour, self.current_target_colour)
+        target_name = _("Target #{:03d}").format(self.mixed_count)
+        target_colour = vpaint.ModelTargetColour(target_name, self.current_target_colour, self.current_colour_description.get_text())
+        self.mixed_colours.append_paint(new_colour, target_colour)
         self.wheels.add_paint(new_colour)
         self.reset_parts()
         self.paint_colours.set_sensitive(False)
         self.mixpanel.clear()
         self.current_colour_description.set_text("")
-        self.wheels.add_target_colour(name, self.current_target_colour)
+        self.wheels.add_target_colour(name, target_colour)
         self.current_target_colour = None
         self.hcvw_display.set_colour(None)
         self.hcvw_display.set_target_colour(None)

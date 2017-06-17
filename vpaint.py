@@ -200,6 +200,27 @@ class ArtPaint(Paint):
     class CHARACTERISTICS(pchar.Characteristics):
         NAMES = ("transparency", "permanence")
 
+class TargetColour:
+    COLOUR = None
+    def __init__(self, name, rgb, description):
+        self.__name = name.strip() # NB: this is readonly so it can be used as dict() key
+        self.colour = self.COLOUR(rgb)
+        self.description = description.strip()
+    @property
+    def name(self):
+        return self.__name
+    def __getattr__(self, attr_name):
+        try:
+            return getattr(self.colour, attr_name)
+        except AttributeError:
+            raise AttributeError(_("{}: unknown attribute for {}").format(attr_name, self.__class__.__name__))
+
+class ModelTargetColour(TargetColour):
+    COLOUR = HCV
+
+class ArtTargetColour(TargetColour):
+    COLOUR = HCVW
+
 SERIES_ID = collections.namedtuple("SERIES_ID", ["maker", "name"])
 
 class SeriesPaint(collections.namedtuple("SeriesPaint", ["series", "paint"])):

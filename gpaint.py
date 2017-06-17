@@ -1157,5 +1157,27 @@ class PaintColourInformationDialogue(dialogue.Dialog):
     def _configure_event_cb(self, widget, allocation):
         recollect.set("paint_colour_information", "last_size", "({0.width}, {0.height})".format(allocation))
 
+recollect.define("target_colour_information", "last_size", recollect.Defn(str, ""))
+
+class TargetColourInformationDialogue(dialogue.Dialog):
+    """A dialog to display the detailed information for a target colour
+    """
+    def __init__(self, colour, parent=None):
+        dialogue.Dialog.__init__(self, title=_("Target Colour: {}").format(colour.name), parent=parent)
+        last_size = recollect.get("target_colour_information", "last_size")
+        if last_size:
+            self.set_default_size(*eval(last_size))
+        vbox = self.get_content_area()
+        label_text = "{}: {}".format(colour.name, colour.description)
+        vbox.pack_start(coloured.ColouredLabel(label_text, colour.rgb.gdk_color), expand=False, fill=True, padding=0)
+        if hasattr(colour, "warmth"):
+            vbox.pack_start(HCVWDisplay(colour=colour), expand=False, fill=True, padding=0)
+        else:
+            vbox.pack_start(HCVDisplay(colour=colour), expand=False, fill=True, padding=0)
+        self.connect("configure-event", self._configure_event_cb)
+        vbox.show_all()
+    def _configure_event_cb(self, widget, allocation):
+        recollect.set("target_colour_information", "last_size", "({0.width}, {0.height})".format(allocation))
+
 if __name__ == "__main__":
     doctest.testmod()
