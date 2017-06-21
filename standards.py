@@ -268,11 +268,12 @@ class PaintStandardsManager(dialogue.ReporterMixin, dialogue.AskerMixin):
             sde["selector"].destroy()
 
 
-class PaintStandardEditor(pedit.PaintSeriesEditor):
+class PaintStandardEditor(pedit.PaintCollectionEditor):
     PAINT_EDITOR = None
     PAINT_LIST_NOTEBOOK = None
     PAINT_COLLECTION = PaintStandard
     RECOLLECT_SECTION = "stds_editor"
+    FILE_NAME_PROMPT = _("Paint Standard Description File:")
 
     def load_fm_file(self, filepath):
         try:
@@ -281,7 +282,7 @@ class PaintStandardEditor(pedit.PaintSeriesEditor):
         except IOError as edata:
             return self.report_io_error(edata)
         try:
-            series = self.PAINT_COLLECTION.fm_definition(text)
+            standard = self.PAINT_COLLECTION.fm_definition(text)
         except self.PAINT_COLLECTION.ParseError as edata:
             return self.alert_user(_("Format Error:  {}: {}").format(edata, filepath))
         # All OK so clear the paint editor and ditch the current colours
@@ -289,22 +290,19 @@ class PaintStandardEditor(pedit.PaintSeriesEditor):
         self.set_current_colour(None)
         self.paint_colours.clear()
         # and load the new ones
-        for paint in series.iter_paints():
+        for paint in standard.iter_paints():
             self.paint_colours.add_paint(paint)
-        self.manufacturer_name.set_text(series.standard_id.sponsor)
-        self.series_name.set_text(series.standard_id.name)
+        self.proprietor_name.set_text(standard.standard_id.sponsor)
+        self.collection_name.set_text(standard.standard_id.name)
         self.set_file_path(filepath)
         self.saved_hash = hashlib.sha1(text.encode()).digest()
-        self._file_status_indicator.set_image(Gtk.Image.new_from_stock(Gtk.STOCK_YES, Gtk.IconSize.BUTTON))
+        self.set_status_indicator(clean=True)
 
     def get_definition_text(self):
         """
-        Get the text sefinition of the current series
+        Get the text sefinition of the current standard
         """
-        sponsor = self.manufacturer_name.get_text()
-        name = self.series_name.get_text()
-        series = self.PAINT_COLLECTION(sponsor=sponsor, name=name, paints=self.paint_colours.iter_paints())
-        return series.definition_text()
-
-recollect.define(PaintStandardEditor.RECOLLECT_SECTION, "hpaned_position", recollect.Defn(int, -1))
-recollect.define(PaintStandardEditor.RECOLLECT_SECTION, "last_file", recollect.Defn(str, ""))
+        sponsor = self.proprietor_name.get_text()
+        name = self.collection_name.get_text()
+        standard = self.PAINT_COLLECTION(sponsor=sponsor, name=name, paints=self.paint_colours.iter_paints())
+        return standard.definition_text()

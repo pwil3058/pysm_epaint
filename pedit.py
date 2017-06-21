@@ -43,9 +43,9 @@ from ..pixbufx import iview
 
 from . import gpaint
 from . import lexicon
-from . import vpaint
 from . import pchar
 from . import rgbh
+from . import vpaint
 
 __all__ = []
 __author__ = "Peter Williams <pwil3058@gmail.com>"
@@ -413,16 +413,14 @@ GObject.signal_new("changed", PaintEditor, GObject.SignalFlags.RUN_LAST, None, (
 class ModelPaintEditor(PaintEditor):
     PAINT = vpaint.ModelPaint
 
-recollect.define("editor", "hpaned_position", recollect.Defn(int, -1))
-recollect.define("editor", "last_file", recollect.Defn(str, ""))
-
-class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMixin, dialogue.AskerMixin):
+class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMixin, dialogue.AskerMixin):
     PAINT_EDITOR = None
     PAINT_LIST_NOTEBOOK = None
-    PAINT_COLLECTION = vpaint.PaintSeries
+    PAINT_COLLECTION = None
     RECOLLECT_SECTION = "editor"
+    FILE_NAME_PROMPT = None
     BUTTONS = [
-            "add_colour_into_series",
+            "add_colour_into_collection",
             "accept_colour_changes",
             "reset_colour_editor",
             "take_screen_sample",
@@ -430,15 +428,15 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         ]
     UI_DESCR = """
     <ui>
-      <menubar name="paint_series_editor_menubar">
-        <menu action="paint_series_editor_file_menu">
-          <menuitem action="new_paint_series"/>
-          <menuitem action="open_paint_series_file"/>
-          <menuitem action="save_paint_series_to_file"/>
-          <menuitem action="save_paint_series_as_file"/>
+      <menubar name="paint_collection_editor_menubar">
+        <menu action="paint_collection_editor_file_menu">
+          <menuitem action="new_paint_collection"/>
+          <menuitem action="open_paint_collection_file"/>
+          <menuitem action="save_paint_collection_to_file"/>
+          <menuitem action="save_paint_collection_as_file"/>
           <menuitem action="close_colour_editor"/>
         </menu>
-        <menu action="paint_series_editor_samples_menu">
+        <menu action="paint_collection_editor_samples_menu">
           <menuitem action="take_screen_sample"/>
           <menuitem action="open_sample_viewer"/>
         </menu>
@@ -448,6 +446,8 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
     AC_HAS_COLOUR, AC_NOT_HAS_COLOUR, AC_HAS_FILE, AC_ID_READY, AC_MASK = actions.ActionCondns.new_flags_and_mask(4)
 
     def __init__(self):
+        recollect.define(self.RECOLLECT_SECTION, "hpaned_position", recollect.Defn(int, -1))
+        recollect.define(self.RECOLLECT_SECTION, "last_file", recollect.Defn(str, ""))
         Gtk.HPaned.__init__(self)
         actions.CAGandUIManager.__init__(self)
         #
@@ -469,13 +469,13 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         self.paint_colours.set_size_request(480, 480)
         self.paint_colours.paint_list.action_groups.connect_activate("edit_selected_paint", self._edit_selected_colour_cb)
         # as these are company names don't split them up for autocompletion
-        self.manufacturer_name = entries.TextEntryAutoComplete(lexicon.GENERAL_WORDS_LEXICON, multiword=False)
-        self.manufacturer_name.connect("new-words", lexicon.new_general_words_cb)
-        self.manufacturer_name.connect("changed", self._id_changed_cb)
+        self.proprietor_name = entries.TextEntryAutoComplete(lexicon.GENERAL_WORDS_LEXICON, multiword=False)
+        self.proprietor_name.connect("new-words", lexicon.new_general_words_cb)
+        self.proprietor_name.connect("changed", self._id_changed_cb)
         mnlabel = Gtk.Label(label=_(self.PAINT_COLLECTION.OWNER_LABEL + ":"))
-        self.series_name = entries.TextEntryAutoComplete(lexicon.GENERAL_WORDS_LEXICON)
-        self.series_name.connect("new-words", lexicon.new_general_words_cb)
-        self.series_name.connect("changed", self._id_changed_cb)
+        self.collection_name = entries.TextEntryAutoComplete(lexicon.GENERAL_WORDS_LEXICON)
+        self.collection_name.connect("new-words", lexicon.new_general_words_cb)
+        self.collection_name.connect("changed", self._id_changed_cb)
         snlabel = Gtk.Label(label=_(self.PAINT_COLLECTION.NAME_LABEL + ":"))
         self.set_current_colour(None)
         # Now arrange them
@@ -488,8 +488,8 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         table = Gtk.Table(rows=2, columns=2, homogeneous=False)
         table.attach(mnlabel, 0, 1, 0, 1, xoptions=0)
         table.attach(snlabel, 0, 1, 1, 2, xoptions=0)
-        table.attach(self.manufacturer_name, 1, 2, 0, 1)
-        table.attach(self.series_name, 1, 2, 1, 2)
+        table.attach(self.proprietor_name, 1, 2, 0, 1)
+        table.attach(self.collection_name, 1, 2, 1, 2)
         vbox.pack_start(table, expand=False, fill=True, padding=0)
         vbox.pack_start(self.paint_colours, expand=True, fill=True, padding=0)
         self.pack1(vbox, resize=True, shrink=False)
@@ -502,6 +502,12 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         self.connect("key-press-event", self.handle_key_press_cb)
         self.show_all()
 
+    def set_status_indicator(self, clean):
+        if clean:
+            self._file_status_indicator.set_image(Gtk.Image.new_from_stock(Gtk.STOCK_YES, Gtk.IconSize.BUTTON))
+        else:
+            self._file_status_indicator.set_image(Gtk.Image.new_from_stock(Gtk.STOCK_NO, Gtk.IconSize.BUTTON))
+
     def _notify_cb(self, widget, parameter):
         if parameter.name == "position":
             recollect.set(self.RECOLLECT_SECTION, "hpaned_position", str(widget.get_position()))
@@ -509,19 +515,19 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
     def _smart_save(self):
         if self.id_is_ready:
             if self.file_path is None:
-                self._save_paint_series_as_file()
+                self._save_paint_collection_as_file()
             else:
-                self._save_paint_series_to_file()
+                self._save_paint_collection_to_file()
         else:
-            self.alert_user(_("Series identification data is incomplete."))
+            self.alert_user(_("Collection identification data is incomplete."))
 
     def handle_key_press_cb(self, widget, event):
         if event.get_state() & Gdk.ModifierType.CONTROL_MASK:
             if event.keyval in [Gdk.KEY_n, Gdk.KEY_N]:
-                widget._start_new_paint_series()
+                widget._start_new_paint_collection()
                 return True
             elif event.keyval in [Gdk.KEY_o, Gdk.KEY_O]:
-                widget._open_paint_series_file()
+                widget._open_paint_collection_file()
                 return True
             elif event.keyval in [Gdk.KEY_s, Gdk.KEY_S]:
                 widget._smart_save()
@@ -549,9 +555,9 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
             self._automatch_sample_images_raw_cb),
         ])
         self.action_groups[PaintEditor.AC_READY|self.AC_NOT_HAS_COLOUR].add_actions([
-            ("add_colour_into_series", None, _("Add"), None,
-            _("Accept this colour and add it to the series."),
-            self._add_colour_into_series_cb),
+            ("add_colour_into_collection", None, _("Add"), None,
+            _("Accept this colour and add it to the collection."),
+            self._add_colour_into_collection_cb),
         ])
         self.action_groups[PaintEditor.AC_READY|self.AC_HAS_COLOUR].add_actions([
             ("accept_colour_changes", None, _("Accept"), None,
@@ -559,27 +565,27 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
             self._accept_colour_changes_cb),
         ])
         self.action_groups[self.AC_HAS_FILE|self.AC_ID_READY].add_actions([
-            ("save_paint_series_to_file", Gtk.STOCK_SAVE, None, None,
-             _("Save the current series definition to file."),
-             lambda _action: self._save_paint_series_to_file()
+            ("save_paint_collection_to_file", Gtk.STOCK_SAVE, None, None,
+             _("Save the current collection definition to file."),
+             lambda _action: self._save_paint_collection_to_file()
             ),
         ])
         self.action_groups[self.AC_ID_READY].add_actions([
-            ("save_paint_series_as_file", Gtk.STOCK_SAVE_AS, None, None,
-             _("Save the current series definition to a user chosen file."),
-             lambda _action: self._save_paint_series_as_file()
+            ("save_paint_collection_as_file", Gtk.STOCK_SAVE_AS, None, None,
+             _("Save the current collection definition to a user chosen file."),
+             lambda _action: self._save_paint_collection_as_file()
             ),
         ])
         # TODO: make some of these conditional
         self.action_groups[actions.AC_DONT_CARE].add_actions([
-            ("paint_series_editor_file_menu", None, _("File")),
-            ("paint_series_editor_samples_menu", None, _("Samples")),
+            ("paint_collection_editor_file_menu", None, _("File")),
+            ("paint_collection_editor_samples_menu", None, _("Samples")),
             ("reset_colour_editor", None, _("Reset"), None,
             _("Reset the colour editor to its default state."),
             self._reset_colour_editor_cb),
-            ("open_paint_series_file", Gtk.STOCK_OPEN, None, None,
-             _("Load a paint series from a file for editing."),
-             lambda _action: self._open_paint_series_file()
+            ("open_paint_collection_file", Gtk.STOCK_OPEN, None, None,
+             _("Load a paint collection from a file for editing."),
+             lambda _action: self._open_paint_collection_file()
             ),
             ("take_screen_sample", None, _("Take Sample"), None,
              _("Take a sample of an arbitrary selected section of the screen and add it to the clipboard."),
@@ -592,15 +598,15 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
              _("Close this window."),
              lambda _action: self._close_colour_editor()
             ),
-            ("new_paint_series", Gtk.STOCK_NEW, None, None,
-             _("Start a new paint colour series."),
-             lambda _action: self._start_new_paint_series()
+            ("new_paint_collection", Gtk.STOCK_NEW, None, None,
+             _("Start a new paint colour collection."),
+             lambda _action: self._start_new_paint_collection()
             ),
         ])
 
     @property
     def id_is_ready(self):
-        return self.manufacturer_name.get_text_length() > 0 and self.series_name.get_text_length() > 0
+        return self.proprietor_name.get_text_length() > 0 and self.collection_name.get_text_length() > 0
 
     def get_masked_condns(self):
         condns = 0
@@ -624,8 +630,8 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         """
         if not self.colour_edit_state_ok():
             return False
-        manl = self.manufacturer_name.get_text_length()
-        serl = self.series_name.get_text_length()
+        manl = self.proprietor_name.get_text_length()
+        serl = self.collection_name.get_text_length()
         coll = len(self.paint_colours)
         if manl == 0 and serl == 0 and coll == 0:
             return True
@@ -634,7 +640,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         parent = self.get_toplevel()
         dlg = UnsavedChangesDialogue(
             parent=parent if isinstance(parent, Gtk.Window) else None,
-            message=_("The series definition has unsaved changes.")
+            message=_("The collection definition has unsaved changes.")
         )
         response = dlg.run()
         dlg.destroy()
@@ -643,9 +649,9 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         elif response == UnsavedChangesDialogue.CONTINUE_UNSAVED:
             return True
         elif self.file_path is not None:
-            self._save_paint_series_to_file()
+            self._save_paint_collection_to_file()
         else:
-            self._save_paint_series_as_file()
+            self._save_paint_collection_as_file()
         return True
 
     def _paint_editor_change_cb(self, widget, *args):
@@ -663,19 +669,16 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
     def _id_changed_cb(self, widget, *args):
         """
         Update actions' "enabled" statuses based on manufacturer and
-        series name state
+        collection name state
         """
-        if self.manufacturer_name.get_text_length() == 0:
+        if self.proprietor_name.get_text_length() == 0:
             condns = 0
-        elif self.series_name.get_text_length() == 0:
+        elif self.collection_name.get_text_length() == 0:
             condns = 0
         else:
             condns = self.AC_ID_READY
         self.action_groups.update_condns(actions.MaskedCondns(condns, self.AC_ID_READY))
-        if self._definition_matches_hash():
-            self._file_status_indicator.set_image(Gtk.Image.new_from_stock(Gtk.STOCk_YES, Gtk.IconSize.BUTTON))
-        else:
-            self._file_status_indicator.set_image(Gtk.Image.new_from_stock(Gtk.STOCK_NO, Gtk.IconSize.BUTTON))
+        self.set_status_indicator(clean=self._definition_matches_hash())
 
     def set_current_colour(self, colour):
         """
@@ -689,7 +692,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
 
     def set_file_path(self, file_path):
         """
-        Set the file path for the paint colour series currently being
+        Set the file path for the paint colour collection currently being
         edited and update action conditions for this change
         """
         self.file_path = file_path
@@ -704,7 +707,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         if self.current_colour is None:
             if self.paint_editor.colour_name.get_text_length() > 0:
                 parent = self.get_toplevel()
-                msg = _("New colour \"{0}\" has not been added to the series.").format(self.paint_editor.colour_name.get_text())
+                msg = _("New colour \"{0}\" has not been added to the collection.").format(self.paint_editor.colour_name.get_text())
                 dlg = UnaddedNewColourDialogue(parent=parent if isinstance(parent, Gtk.Window) else None,message=msg)
                 response = dlg.run()
                 dlg.destroy()
@@ -758,29 +761,29 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         self.paint_colours.add_paint(edited_colour)
         self.current_colour = edited_colour
         self.paint_colours.queue_draw()
-        self._file_status_indicator.set_image(Gtk.Image.new_from_stock(Gtk.STOCK_NO, Gtk.IconSize.BUTTON))
+        self.set_status_indicator(clean=False)
 
     def _reset_colour_editor_cb(self, _widget):
         if self.colour_edit_state_ok():
             self.paint_editor.reset()
             self.set_current_colour(None)
 
-    def _start_new_paint_series(self):
+    def _start_new_paint_collection(self):
         """
-        Throw away the current data and prepare to create a new series
+        Throw away the current data and prepare to create a new collection
         """
         if not self.unsaved_changes_ok():
             return
         self.paint_editor.reset()
         self.paint_colours.clear()
-        self.manufacturer_name.set_text("")
-        self.series_name.set_text("")
+        self.proprietor_name.set_text("")
+        self.collection_name.set_text("")
         self.set_file_path(None)
         self.set_current_colour(None)
         self.saved_hash = None
-        self._file_status_indicator.set_image(Gtk.Image.new_from_stock(Gtk.STOCK_NO, Gtk.IconSize.BUTTON))
+        self.set_status_indicator(clean=False)
 
-    def _add_colour_into_series_cb(self, _widget):
+    def _add_colour_into_collection_cb(self, _widget):
         new_colour = self.paint_editor.get_paint()
         old_colour = self.paint_colours.get_paint_with_name(new_colour.name)
         if old_colour is not None:
@@ -794,7 +797,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         else:
             self.paint_colours.add_paint(new_colour)
             self.set_current_colour(new_colour)
-        self._file_status_indicator.set_image(Gtk.Image.new_from_stock(Gtk.STOCK_NO, Gtk.IconSize.BUTTON))
+        self.set_status_indicator(clean=False)
 
     def _automatch_sample_images_max_chroma_cb(self, _widget):
         self.paint_editor.auto_match_sample(raw=False)
@@ -803,29 +806,9 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         self.paint_editor.auto_match_sample(raw=True)
 
     def load_fm_file(self, filepath):
-        try:
-            with open(filepath, "r") as fobj:
-                text = fobj.read()
-        except IOError as edata:
-            return self.report_io_error(edata)
-        try:
-            series = self.PAINT_COLLECTION.fm_definition(text)
-        except self.PAINT_COLLECTION.ParseError as edata:
-            return self.alert_user(_("Format Error:  {}: {}").format(edata, filepath))
-        # All OK so clear the paint editor and ditch the current colours
-        self.paint_editor.reset()
-        self.set_current_colour(None)
-        self.paint_colours.clear()
-        # and load the new ones
-        for paint in series.iter_paints():
-            self.paint_colours.add_paint(paint)
-        self.manufacturer_name.set_text(series.series_id.maker)
-        self.series_name.set_text(series.series_id.name)
-        self.set_file_path(filepath)
-        self.saved_hash = hashlib.sha1(text.encode()).digest()
-        self._file_status_indicator.set_image(Gtk.Image.new_from_stock(Gtk.STOCK_YES, Gtk.IconSize.BUTTON))
+        assert False, "Must be defined in child"
 
-    def _open_paint_series_file(self):
+    def _open_paint_collection_file(self):
         """
         Ask the user for the name of the file then open it.
         """
@@ -836,7 +819,7 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         else:
             last_file = recollect.get(self.RECOLLECT_SECTION, "last_file")
             lastdir = os.path.dirname(last_file) + os.sep if last_file else None
-        file_path = self.ask_file_path(_("Paint Series Description File:"), suggestion=lastdir, existing=True)
+        file_path = self.ask_file_path(self.FILE_NAME_PROMPT, suggestion=lastdir, existing=True)
         if file_path:
             self.load_fm_file(file_path)
 
@@ -847,16 +830,10 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         SampleViewer(self.get_toplevel()).show()
 
     def get_definition_text(self):
-        """
-        Get the text sefinition of the current series
-        """
-        maker = self.manufacturer_name.get_text()
-        name = self.series_name.get_text()
-        series = self.PAINT_COLLECTION(maker=maker, name=name, paints=self.paint_colours.iter_paints())
-        return series.definition_text()
+        assert False, "Must be defined in child"
 
-    def _save_paint_series_to_file(self, filepath=None):
-        """Save the paint series to the current or nominated file
+    def _save_paint_collection_to_file(self, filepath=None):
+        """Save the paint collection to the current or nominated file
         """
         if filepath is None:
             filepath = self.file_path
@@ -869,9 +846,9 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         # save was successful so set our filepath
         self.set_file_path(filepath)
         self.saved_hash = hashlib.sha1(definition.encode()).digest()
-        self._file_status_indicator.set_image(Gtk.Image.new_from_stock(Gtk.STOCK_YES, Gtk.IconSize.BUTTON))
+        self.set_status_indicator(clean=True)
 
-    def _save_paint_series_as_file(self):
+    def _save_paint_collection_as_file(self):
         """
         Ask the user for the name of the file then open it.
         """
@@ -880,14 +857,14 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
         else:
             last_file = recollect.get(self.RECOLLECT_SECTION, "last_file")
             lastdir = os.path.dirname(last_file) if last_file else None
-        file_path = self.ask_file_path(_("Paint Series Description File:"), suggestion=lastdir, existing=False)
+        file_path = self.ask_file_path(self.FILE_NAME_PROMPT, suggestion=lastdir, existing=False)
         if file_path:
             if not os.path.exists(file_path) or self.ask_yes_no(_("{}: already exists. Overwrite?").format(file_path)):
-                self._save_paint_series_to_file(file_path)
+                self._save_paint_collection_to_file(file_path)
 
     def _close_colour_editor(self):
         """
-        Close the Paint Series Editor
+        Close the Paint Collection Editor
         """
         if not self.unsaved_changes_ok():
             return
@@ -896,13 +873,13 @@ class PaintSeriesEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMi
 
     def _exit_colour_editor_cb(self, _action):
         """
-        Exit the Paint Series Editor
+        Exit the Paint Collection Editor
         """
         if not self.__closed and not self.unsaved_changes_ok():
             return
         Gtk.main_quit()
 
-GObject.signal_new("file_changed", PaintSeriesEditor, GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_PYOBJECT,))
+GObject.signal_new("file_changed", PaintCollectionEditor, GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_PYOBJECT,))
 
 
 from .. import SYS_SAMPLES_DIR_PATH
