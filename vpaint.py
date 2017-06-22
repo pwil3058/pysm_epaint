@@ -167,6 +167,8 @@ class Paint:
                 raise AttributeError(_("{}: unknown attribute for {}").format(e_name, self.__class__.__name__))
     def get_extras(self):
         return self.__extras.copy()
+    def get_named_extra(self, e_name):
+        return self.__extras.get(e_name, None)
     def __ne__(self, other):
         if self.__name != other.__name:
             return True

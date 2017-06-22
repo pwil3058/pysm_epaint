@@ -958,12 +958,16 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
             assert len(descr) > 0
             self._set_new_mixed_colour(description=descr, colour=dlg.colour_specifier.colour)
         dlg.destroy()
+    def _set_new_mixed_colour_fm_standard(self, standard_paint):
+        notes = standard_paint.get_named_extra("notes")
+        description = "{}: {}".format(standard_paint.name, notes) if notes else standard_paint.name
+        self._set_new_mixed_colour(description=description, colour=standard_paint.colour)
     def _new_mixed_standard_colour(self):
         standard_paint_id = self.standards_manager.ask_standard_paint_name()
         if standard_paint_id:
             standard_paint = self.standards_manager.get_standard_paint(standard_paint_id)
             if standard_paint:
-                self._set_new_mixed_colour(description=standard_paint_id, colour=standard_paint.colour)
+                self._set_new_mixed_colour_fm_standard(standard_paint)
             else:
                 self.inform_user(_("{}: unknown paint standard identifier").format(standard_paint_id))
     def reset_parts(self):
