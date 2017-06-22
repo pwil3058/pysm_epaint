@@ -299,31 +299,22 @@ class PaintSeriesManager(GObject.GObject, dialogue.ReporterMixin):
         self.__series_dict = dict()
         self._load_series_data()
         open_menu, remove_menu = self._build_submenus()
-        menu = Gtk.Menu()
         # Open
         self.__open_item = Gtk.MenuItem(_("Open"))
         self.__open_item.set_submenu(open_menu)
         self.__open_item.set_tooltip_text(_("Open a paint series paint selector."))
         self.__open_item.show()
-        menu.append(self.__open_item)
-        # Add
-        add_menu = Gtk.MenuItem(_("Load"))
-        add_menu.set_tooltip_text(_("Load a paint series from a file."))
-        add_menu.show()
-        add_menu.connect("activate", self._add_paint_series_cb)
-        menu.append(add_menu)
         # Remove
         self.__remove_item = Gtk.MenuItem(_("Remove"))
         self.__remove_item.set_submenu(remove_menu)
         self.__remove_item.set_tooltip_text(_("Remove a paint series from the application."))
         self.__remove_item.show()
-        menu.append(self.__remove_item)
-        #
-        self.__menu = Gtk.MenuItem(_("Paint Colour Series"))
-        self.__menu.set_submenu(menu)
     @property
-    def menu(self):
-        return self.__menu
+    def open_menu_item(self):
+        return self.__open_item
+    @property
+    def remove_menu_item(self):
+        return self.__remove_item
     def set_target_colour(self, colour):
         self.__target_colour = colour
         for sdata in self.__series_dict.values():
@@ -388,7 +379,7 @@ class PaintSeriesManager(GObject.GObject, dialogue.ReporterMixin):
         self.__open_item.set_submenu(open_menu)
         #self.__remove_item.remove_submenu()
         self.__remove_item.set_submenu(remove_menu)
-    def _add_paint_series_cb(self, widget):
+    def add_paint_series(self):
         dlg = Gtk.FileChooserDialog(
             title="Select Paint Series Description File",
             parent=None,

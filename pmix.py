@@ -678,13 +678,16 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
     MIXED_PAINT = None
     UI_DESCR = """
     <ui>
-        <menubar name='mixer_menubar'>
-            <menu action='mixer_file_menu'>
-                <menuitem action='print_mixer'/>
-                <menuitem action='quit_mixer'/>
+        <menubar name="mixer_menubar">
+            <menu action="mixer_file_menu">
+                <menuitem action="print_mixer"/>
+                <menuitem action="quit_mixer"/>
             </menu>
-            <menu action='reference_resource_menu'>
-                <menuitem action='open_reference_image_viewer'/>
+            <menu action="mixer_series_manager_menu">
+                <menuitem action="mixer_load_paint_series"/>
+            </menu>
+            <menu action="reference_resource_menu">
+                <menuitem action="open_reference_image_viewer"/>
             </menu>
         </menubar>
     </ui>
@@ -693,6 +696,8 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
     AC_HAVE_TARGET, AC_DONT_HAVE_TARGET, AC_TARGET_MASK = actions.ActionCondns.new_flags_and_mask(2)
     def __init__(self):
         Gtk.VBox.__init__(self)
+        self.paint_series_manager = self.PAINT_SERIES_MANAGER()
+        self.paint_series_manager.connect("add-paint-colours", self._add_colours_to_mixer_cb)
         actions.CAGandUIManager.__init__(self)
         self.action_groups.update_condns(actions.MaskedCondns(self.AC_DONT_HAVE_TARGET, self.AC_TARGET_MASK))
         # Components
@@ -757,10 +762,10 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
         hpaned.set_position(recollect.get("mixer", "hpaned_position"))
         vpaned.connect("notify", self._paned_notify_cb)
         hpaned.connect("notify", self._paned_notify_cb)
-        self.paint_series_manager = self.PAINT_SERIES_MANAGER()
-        self.paint_series_manager.connect("add-paint-colours", self._add_colours_to_mixer_cb)
         self.connect("key-press-event", self.handle_key_press_cb)
-        menubar.insert(self.paint_series_manager.menu, 1)
+        msmm = self.ui_manager.get_widget("/mixer_menubar/mixer_series_manager_menu").get_submenu()
+        msmm.prepend(self.paint_series_manager.open_menu_item)
+        msmm.append(self.paint_series_manager.remove_menu_item)
         menubar.insert(self.standards_manager.menu, 2)
         self.show_all()
         self.recalculate_colour([])
@@ -785,20 +790,28 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
         """
         self.action_groups[actions.AC_DONT_CARE].add_actions([
             ("mixer_file_menu", None, _("File")),
+            ("mixer_series_manager_menu", None, _("Paint Colour Series")),
             ("reference_resource_menu", None, _("Reference Resources")),
             ("remove_unused_paints", None, _("Remove Unused Paints"), None,
-            _("Remove all unused paints from the mixer."),
-            self._remove_unused_paints_cb),
+             _("Remove all unused paints from the mixer."),
+             self._remove_unused_paints_cb
+            ),
+            ("mixer_load_paint_series", None, _("Load"), None,
+             _("Load a paint series from a file."),
+             lambda _action: self.paint_series_manager.add_paint_series()
+            ),
             ("quit_mixer", Gtk.STOCK_QUIT, None, None,
              _("Quit this program."),
              lambda _action: self._quit_mixer()
             ),
             ("open_reference_image_viewer", None, _("Open Image Viewer"), None,
-            _("Open a tool for viewing reference images."),
-            self._open_reference_image_viewer_cb),
+             _("Open a tool for viewing reference images."),
+             self._open_reference_image_viewer_cb
+            ),
             ("print_mixer", Gtk.STOCK_PRINT, None, None,
-            _("Print a text description of the mixer."),
-            self._print_mixer_cb),
+             _("Print a text description of the mixer."),
+             self._print_mixer_cb
+            ),
         ])
         self.action_groups[self.AC_HAVE_MIXTURE].add_actions([
             ("simplify_contributions", None, _("Simplify"), None,
