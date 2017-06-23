@@ -140,25 +140,14 @@ class PaintStandardsManager(dialogue.ReporterMixin, dialogue.AskerMixin):
         self.__standards_dict = dict()
         self._load_standards_data()
         remove_menu = self._build_submenu()
-        menu = Gtk.Menu()
-        # Add
-        add_menu = Gtk.MenuItem(_("Load"))
-        add_menu.set_tooltip_text(_("Load a paint standards from a file."))
-        add_menu.show()
-        add_menu.connect("activate", self._add_paint_standard_cb)
-        menu.append(add_menu)
         # Remove
         self.__remove_item = Gtk.MenuItem(_("Remove"))
         self.__remove_item.set_submenu(remove_menu)
         self.__remove_item.set_tooltip_text(_("Remove a paint standards from the application."))
         self.__remove_item.show()
-        menu.append(self.__remove_item)
-        #
-        self.__menu = Gtk.MenuItem(_("Paint Colour Standards"))
-        self.__menu.set_submenu(menu)
     @property
-    def menu(self):
-        return self.__menu
+    def remove_menu_item(self):
+        return self.__remove_item
     def _add_standard_from_file(self, filepath):
         # Check and see if this file is already loaded
         for standard, sdata in self.__standards_dict.items():
@@ -227,7 +216,7 @@ class PaintStandardsManager(dialogue.ReporterMixin, dialogue.AskerMixin):
     def _rebuild_submenu(self):
         remove_menu = self._build_submenu()
         self.__remove_item.set_submenu(remove_menu)
-    def _add_paint_standard_cb(self, widget):
+    def add_paint_standard(self):
         dlg = Gtk.FileChooserDialog(
             title="Select Paint Standards Description File",
             parent=None,

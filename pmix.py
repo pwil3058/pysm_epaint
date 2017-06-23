@@ -686,6 +686,9 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
             <menu action="mixer_series_manager_menu">
                 <menuitem action="mixer_load_paint_series"/>
             </menu>
+            <menu action="mixer_standards_manager_menu">
+                <menuitem action="mixer_load_paint_standard"/>
+            </menu>
             <menu action="reference_resource_menu">
                 <menuitem action="open_reference_image_viewer"/>
             </menu>
@@ -696,11 +699,11 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
     AC_HAVE_TARGET, AC_DONT_HAVE_TARGET, AC_TARGET_MASK = actions.ActionCondns.new_flags_and_mask(2)
     def __init__(self):
         Gtk.VBox.__init__(self)
-        self.paint_series_manager = self.PAINT_SERIES_MANAGER()
-        self.paint_series_manager.connect("add-paint-colours", self._add_colours_to_mixer_cb)
         actions.CAGandUIManager.__init__(self)
         self.action_groups.update_condns(actions.MaskedCondns(self.AC_DONT_HAVE_TARGET, self.AC_TARGET_MASK))
         # Components
+        self.paint_series_manager = self.PAINT_SERIES_MANAGER()
+        self.paint_series_manager.connect("add-paint-colours", self._add_colours_to_mixer_cb)
         from . import standards
         self.standards_manager = standards.PaintStandardsManager()
         self.notes = entries.TextEntryAutoComplete(lexicon.GENERAL_WORDS_LEXICON)
@@ -766,7 +769,8 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
         msmm = self.ui_manager.get_widget("/mixer_menubar/mixer_series_manager_menu").get_submenu()
         msmm.prepend(self.paint_series_manager.open_menu_item)
         msmm.append(self.paint_series_manager.remove_menu_item)
-        menubar.insert(self.standards_manager.menu, 2)
+        msmm = self.ui_manager.get_widget("/mixer_menubar/mixer_standards_manager_menu").get_submenu()
+        msmm.append(self.standards_manager.remove_menu_item)
         self.show_all()
         self.recalculate_colour([])
 
@@ -791,6 +795,7 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
         self.action_groups[actions.AC_DONT_CARE].add_actions([
             ("mixer_file_menu", None, _("File")),
             ("mixer_series_manager_menu", None, _("Paint Colour Series")),
+            ("mixer_standards_manager_menu", None, _("Paint Colour Standards")),
             ("reference_resource_menu", None, _("Reference Resources")),
             ("remove_unused_paints", None, _("Remove Unused Paints"), None,
              _("Remove all unused paints from the mixer."),
@@ -799,6 +804,10 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
             ("mixer_load_paint_series", None, _("Load"), None,
              _("Load a paint series from a file."),
              lambda _action: self.paint_series_manager.add_paint_series()
+            ),
+            ("mixer_load_paint_standard", None, _("Load"), None,
+             _("Load a paint standard from a file."),
+             lambda _action: self.standards_manager.add_paint_standard()
             ),
             ("quit_mixer", Gtk.STOCK_QUIT, None, None,
              _("Quit this program."),
