@@ -515,11 +515,49 @@ class HCVWDisplay(HCVDisplay):
         HCVDisplay.set_target_colour(self, new_target_colour)
         self.warmth.set_target_colour(new_target_colour)
 
+class PaintColourInformationDialogue(dialogue.Dialog):
+    """A dialog to display the detailed information for a paint colour
+    """
+    TITLE_FMT_STR = _("Paint Colour: {}")
+    RECOLLECT_SECTION = "paint_colour_information"
+    def __init__(self, colour, parent=None):
+        dialogue.Dialog.__init__(self, title=self.TITLE_FMT_STR.format(colour.name), parent=parent)
+        try:
+            recollect.define(self.RECOLLECT_SECTION, "last_size", recollect.Defn(str, ""))
+        except recollect.DuplicateDefn:
+            pass
+        last_size = recollect.get(self.RECOLLECT_SECTION, "last_size")
+        if last_size:
+            self.set_default_size(*eval(last_size))
+        vbox = self.get_content_area()
+        vbox.pack_start(coloured.ColouredLabel(colour.name, colour.rgb.gdk_color), expand=False, fill=True, padding=0)
+        for extra in colour.EXTRAS:
+            vbox.pack_start(coloured.ColouredLabel(getattr(colour, extra.name), colour.rgb.gdk_color), expand=False, fill=True, padding=0)
+        if hasattr(colour, "series"):
+            vbox.pack_start(coloured.ColouredLabel(colour.series.series_id.name, colour.rgb.gdk_color), expand=False, fill=True, padding=0)
+            vbox.pack_start(coloured.ColouredLabel(colour.series.series_id.maker, colour.rgb.gdk_color), expand=False, fill=True, padding=0)
+        if hasattr(colour, "warmth"):
+            vbox.pack_start(HCVWDisplay(colour=colour), expand=False, fill=True, padding=0)
+        else:
+            vbox.pack_start(HCVDisplay(colour=colour), expand=False, fill=True, padding=0)
+        if hasattr(colour, "characteristics"):
+            for characteristic in colour.characteristics:
+                vbox.pack_start(Gtk.Label(characteristic.description()), expand=False, fill=True, padding=0)
+        self.connect("configure-event", self._configure_event_cb)
+        vbox.show_all()
+    def _configure_event_cb(self, widget, allocation):
+        recollect.set(self.RECOLLECT_SECTION, "last_size", "({0.width}, {0.height})".format(allocation))
+
 class HueWheelNotebook(Gtk.Notebook):
+    PAINT_INFO_DIALOGUE = PaintColourInformationDialogue
     def __init__(self, popup="/colour_wheel_I_popup"):
         Gtk.Notebook.__init__(self)
-        self.hue_chroma_wheel = HueChromaWheel(nrings=5, popup=popup)
-        self.hue_value_wheel = HueValueWheel(popup=popup)
+        class MyHueChromaWheel(HueChromaWheel):
+            PAINT_INFO_DIALOGUE = self.PAINT_INFO_DIALOGUE
+        self.hue_chroma_wheel = MyHueChromaWheel(nrings=5, popup=popup)
+        class MyHueValueWheel(HueValueWheel):
+            PAINT_INFO_DIALOGUE = self.PAINT_INFO_DIALOGUE
+        self.hue_value_wheel = MyHueValueWheel(popup=popup)
         self.append_page(self.hue_value_wheel, Gtk.Label(label=_("Hue/Value Wheel")))
         self.append_page(self.hue_chroma_wheel, Gtk.Label(label=_("Hue/Chroma Wheel")))
     def set_wheels_colour_info_acb(self, callback):
@@ -551,6 +589,7 @@ class HueWheelNotebook(Gtk.Notebook):
         self.hue_value_wheel.unset_crosshair()
 
 class ColourWheel(Gtk.DrawingArea, actions.CAGandUIManager):
+    PAINT_INFO_DIALOGUE = PaintColourInformationDialogue
     UI_DESCR = """
         <ui>
             <popup name="colour_wheel_I_popup">
@@ -617,7 +656,7 @@ class ColourWheel(Gtk.DrawingArea, actions.CAGandUIManager):
         self.__ac_acbid = None
         self.__ec_acbid = None
     def _show_colour_details_acb(self, _action):
-        PaintColourInformationDialogue(self.__popup_colour).show()
+        self.PAINT_INFO_DIALOGUE(self.__popup_colour).show()
     def do_popup_preliminaries(self, event):
         colour, rng = self.get_colour_nearest_to_xy(event.x, event.y)
         if colour is not None and rng <= self.scaled_size * 1.5:
@@ -974,6 +1013,7 @@ def generate_paint_list_spec(view, model):
 
 class PaintListView(tlview.View, actions.CAGandUIManager, dialogue.AskerMixin):
     MODEL = PaintListStore
+    PAINT_INFO_DIALOGUE = PaintColourInformationDialogue
     SPECIFICATION = generate_paint_list_spec
     UI_DESCR = """
     <ui>
@@ -1017,7 +1057,7 @@ class PaintListView(tlview.View, actions.CAGandUIManager, dialogue.AskerMixin):
             self.model.remove_paints(paints)
     def _show_paint_details_cb(self, _action):
         paint = self.get_selected_paints()[0]
-        PaintColourInformationDialogue(paint).show()
+        self.PAINT_INFO_DIALOGUE(paint).show()
     def get_selected_paints(self):
         """Return the currently selected paints as a list.
         """
@@ -1127,57 +1167,6 @@ class RGBEntryBox(Gtk.HBox):
             elif spinner is self.blue:
                 self.red.entry.grab_focus()
 GObject.signal_new("colour-changed", RGBEntryBox, GObject.SignalFlags.RUN_LAST, None, ())
-
-recollect.define("paint_colour_information", "last_size", recollect.Defn(str, ""))
-
-class PaintColourInformationDialogue(dialogue.Dialog):
-    """A dialog to display the detailed information for a paint colour
-    """
-    def __init__(self, colour, parent=None):
-        dialogue.Dialog.__init__(self, title=_("Paint Colour: {}").format(colour.name), parent=parent)
-        last_size = recollect.get("paint_colour_information", "last_size")
-        if last_size:
-            self.set_default_size(*eval(last_size))
-        vbox = self.get_content_area()
-        vbox.pack_start(coloured.ColouredLabel(colour.name, colour.rgb.gdk_color), expand=False, fill=True, padding=0)
-        for extra in colour.EXTRAS:
-            vbox.pack_start(coloured.ColouredLabel(getattr(colour, extra.name), colour.rgb.gdk_color), expand=False, fill=True, padding=0)
-        if hasattr(colour, "series"):
-            vbox.pack_start(coloured.ColouredLabel(colour.series.series_id.name, colour.rgb.gdk_color), expand=False, fill=True, padding=0)
-            vbox.pack_start(coloured.ColouredLabel(colour.series.series_id.maker, colour.rgb.gdk_color), expand=False, fill=True, padding=0)
-        if hasattr(colour, "warmth"):
-            vbox.pack_start(HCVWDisplay(colour=colour), expand=False, fill=True, padding=0)
-        else:
-            vbox.pack_start(HCVDisplay(colour=colour), expand=False, fill=True, padding=0)
-        if hasattr(colour, "characteristics"):
-            for characteristic in colour.characteristics:
-                vbox.pack_start(Gtk.Label(characteristic.description()), expand=False, fill=True, padding=0)
-        self.connect("configure-event", self._configure_event_cb)
-        vbox.show_all()
-    def _configure_event_cb(self, widget, allocation):
-        recollect.set("paint_colour_information", "last_size", "({0.width}, {0.height})".format(allocation))
-
-recollect.define("target_colour_information", "last_size", recollect.Defn(str, ""))
-
-class TargetColourInformationDialogue(dialogue.Dialog):
-    """A dialog to display the detailed information for a target colour
-    """
-    def __init__(self, colour, parent=None):
-        dialogue.Dialog.__init__(self, title=_("Target Colour: {}").format(colour.name), parent=parent)
-        last_size = recollect.get("target_colour_information", "last_size")
-        if last_size:
-            self.set_default_size(*eval(last_size))
-        vbox = self.get_content_area()
-        label_text = "{}: {}".format(colour.name, colour.description)
-        vbox.pack_start(coloured.ColouredLabel(label_text, colour.rgb.gdk_color), expand=False, fill=True, padding=0)
-        if hasattr(colour, "warmth"):
-            vbox.pack_start(HCVWDisplay(colour=colour), expand=False, fill=True, padding=0)
-        else:
-            vbox.pack_start(HCVDisplay(colour=colour), expand=False, fill=True, padding=0)
-        self.connect("configure-event", self._configure_event_cb)
-        vbox.show_all()
-    def _configure_event_cb(self, widget, allocation):
-        recollect.set("target_colour_information", "last_size", "({0.width}, {0.height})".format(allocation))
 
 if __name__ == "__main__":
     doctest.testmod()

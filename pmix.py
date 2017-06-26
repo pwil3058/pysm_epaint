@@ -135,6 +135,7 @@ def paint_parts_adjustment():
     return Gtk.Adjustment(0, 0, 999, 1, 10, 0)
 
 class PaintPartsSpinButton(Gtk.EventBox, actions.CAGandUIManager):
+    PAINT_INFO_DIALOGUE = gpaint.PaintColourInformationDialogue
     UI_DESCR = """
         <ui>
             <popup name="paint_spinner_popup">
@@ -194,7 +195,7 @@ class PaintPartsSpinButton(Gtk.EventBox, actions.CAGandUIManager):
     def set_sensitive(self, sensitive):
         self.entry.set_sensitive(sensitive)
     def _paint_colour_info_cb(self, _action):
-        gpaint.PaintColourInformationDialogue(self.paint).show()
+        self.PAINT_INFO_DIALOGUE(self.paint).show()
 
 class PaintPartsSpinButtonBox(Gtk.VBox):
     # TODO: implement PaintPartsSpinButtonBox() using Gtk.FlowBox
@@ -414,13 +415,13 @@ class MixedPaintComponentsListView(gpaint.PaintListView):
     MODEL = MixedPaintComponentsListStore
     SPECIFICATION = generate_components_list_spec
 
-recollect.define("mixed_colour_information", "last_size", recollect.Defn(eval, ""))
 
 class MixedPaintInformationDialogue(dialogue.Dialog):
     """
     A dialog to display the detailed information for a mixed colour
     """
     COMPONENT_LIST_VIEW = None
+    recollect.define("mixed_colour_information", "last_size", recollect.Defn(eval, ""))
     def __init__(self, colour, target_colour=None, parent=None):
         dialogue.Dialog.__init__(self, title=_("Mixed Colour: {}").format(colour.name), parent=parent)
         last_size = recollect.get("mixed_colour_information", "last_size")
@@ -666,13 +667,35 @@ def pango_rgb_str(rgb, bits_per_channel=16):
         string += '{0:02X}'.format(rgb[i] >> (bits_per_channel - 8))
     return string
 
-recollect.define("mixer", "hpaned_position", recollect.Defn(int, -1))
-recollect.define("mixer", "vpaned_position", recollect.Defn(int, -1))
+class TargetColourInformationDialogue(dialogue.Dialog):
+    """A dialog to display the detailed information for a target colour
+    """
+    recollect.define("target_colour_information", "last_size", recollect.Defn(str, ""))
+    def __init__(self, colour, parent=None):
+        dialogue.Dialog.__init__(self, title=_("Target Colour: {}").format(colour.name), parent=parent)
+        last_size = recollect.get("target_colour_information", "last_size")
+        if last_size:
+            self.set_default_size(*eval(last_size))
+        vbox = self.get_content_area()
+        label_text = "{}: {}".format(colour.name, colour.description)
+        vbox.pack_start(coloured.ColouredLabel(label_text, colour.rgb.gdk_color), expand=False, fill=True, padding=0)
+        if hasattr(colour, "warmth"):
+            vbox.pack_start(gpaint.HCVWDisplay(colour=colour), expand=False, fill=True, padding=0)
+        else:
+            vbox.pack_start(gpaint.HCVDisplay(colour=colour), expand=False, fill=True, padding=0)
+        self.connect("configure-event", self._configure_event_cb)
+        vbox.show_all()
+    def _configure_event_cb(self, widget, allocation):
+        recollect.set("target_colour_information", "last_size", "({0.width}, {0.height})".format(allocation))
+
 
 class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogue.ReporterMixin):
+    recollect.define("mixer", "hpaned_position", recollect.Defn(int, -1))
+    recollect.define("mixer", "vpaned_position", recollect.Defn(int, -1))
     PAINT = None
     MATCHED_PAINT_LIST_VIEW = None
     PAINT_SERIES_MANAGER = None
+    PAINT_INFO_DIALOGUE = gpaint.PaintColourInformationDialogue
     MIXED_PAINT_INFORMATION_DIALOGUE = None
     MIXTURE = None
     MIXED_PAINT = None
@@ -706,6 +729,8 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
         self.paint_series_manager.connect("add-paint-colours", self._add_colours_to_mixer_cb)
         from . import standards
         self.standards_manager = standards.PaintStandardsManager()
+        self.standards_manager.connect("set_target_colour", lambda _widget, standard_paint: self._set_new_mixed_colour_fm_standard(standard_paint))
+        self.standards_manager.set_target_setable(True)
         self.notes = entries.TextEntryAutoComplete(lexicon.GENERAL_WORDS_LEXICON)
         self.notes.connect("new-words", lexicon.new_general_words_cb)
         self.next_name_label = Gtk.Label(label=_("#???:"))
@@ -770,6 +795,7 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
         msmm.prepend(self.paint_series_manager.open_menu_item)
         msmm.append(self.paint_series_manager.remove_menu_item)
         msmm = self.ui_manager.get_widget("/mixer_menubar/mixer_standards_manager_menu").get_submenu()
+        msmm.prepend(self.standards_manager.open_menu_item)
         msmm.append(self.standards_manager.remove_menu_item)
         self.show_all()
         self.recalculate_colour([])
@@ -850,9 +876,9 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
         if hasattr(colour, "blobs"):
             self.MIXED_PAINT_INFORMATION_DIALOGUE(colour, self.mixed_colours.get_target_colour(colour)).show()
         elif isinstance(colour, vpaint.TargetColour):
-            gpaint.TargetColourInformationDialogue(colour).show()
+            TargetColourInformationDialogue(colour).show()
         else:
-            gpaint.PaintColourInformationDialogue(colour).show()
+            self.PAINT_INFO_DIALOGUE(colour).show()
         return True
     def __str__(self):
         paint_colours = self.paint_colours.get_colours()
@@ -946,6 +972,7 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
         self.wheels.unset_crosshair()
         self.paint_series_manager.unset_target_colour()
         self.action_groups.update_condns(actions.MaskedCondns(self.AC_DONT_HAVE_TARGET, self.AC_TARGET_MASK))
+        self.standards_manager.set_target_setable(True)
         self.next_name_label.set_text(_("#???:"))
         self.current_colour_description.set_text("")
     def _set_new_mixed_colour(self, *, description, colour):
@@ -956,6 +983,7 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
         self.wheels.set_crosshair(self.current_target_colour)
         self.paint_series_manager.set_target_colour(self.current_target_colour)
         self.action_groups.update_condns(actions.MaskedCondns(self.AC_HAVE_TARGET, self.AC_TARGET_MASK))
+        self.standards_manager.set_target_setable(False)
         self.next_name_label.set_text(_("#{:03d}:").format(self.mixed_count + 1))
         self.paint_colours.set_sensitive(True)
     def _new_mixed_colour_cb(self,_action):

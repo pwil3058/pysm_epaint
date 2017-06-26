@@ -22,12 +22,17 @@ import hashlib
 import os
 import re
 
+from gi.repository import GObject
 from gi.repository import Gtk
 
 from ..gtx import actions
 from ..gtx import dialogue
+from ..gtx import gutils
+from ..gtx import icons
 from ..gtx import recollect
+from ..gtx import tlview
 
+from . import gpaint
 from . import pedit
 from . import vpaint
 
@@ -135,19 +140,145 @@ class PaintStandard:
                 raise cls.ParseError(_("Badly formed definition: {0}. ({1})").format(line, str(edata)))
         return standard
 
-class PaintStandardsManager(dialogue.ReporterMixin, dialogue.AskerMixin):
+def generate_paint_list_spec(view, model):
+    """Generate the specification for a paint colour list
+    """
+    return tlview.ViewSpec(
+        properties={},
+        selection_mode=Gtk.SelectionMode.SINGLE,
+        columns=gpaint.paint_list_column_specs(model)
+    )
+
+class StandardPaintColourInformationDialogue(gpaint.PaintColourInformationDialogue):
+    """A dialog to display the detailed information for a paint colour
+    """
+    TITLE_FMT_STR = _("Standard Paint Colour: {}")
+    RECOLLECT_SECTION = "standard_paint_colour_information"
+
+class SelectStandardPaintListView(tlview.View, actions.CAGandUIManager, dialogue.AskerMixin):
+    MODEL = gpaint.ModelPaintListStore
+    SPECIFICATION = generate_paint_list_spec
+    UI_DESCR = """
+    <ui>
+        <popup name="paint_list_popup">
+            <menuitem action="set_target_in_mixer"/>
+            <menuitem action="show_standard_paint_details"/>
+        </popup>
+    </ui>
+    """
+    AC_TARGET_SETTABLE = actions.ActionCondns.new_flag()
+    def __init__(self, *args, **kwargs):
+        tlview.View.__init__(self, *args, **kwargs)
+        actions.CAGandUIManager.__init__(self, selection=self.get_selection(), popup="/paint_list_popup")
+    def populate_action_groups(self):
+        """Populate action groups ready for UI initialization.
+        """
+        self.action_groups[actions.AC_SELN_UNIQUE].add_actions(
+            [
+                ("show_standard_paint_details", Gtk.STOCK_INFO, None, None,
+                 _("Show a detailed description of the selected standard paint."),
+                 lambda _action: self.show_selected_standard_paint_details()
+                ),
+            ],
+        )
+        self.action_groups[actions.AC_SELN_UNIQUE|self.AC_TARGET_SETTABLE].add_actions(
+            [
+                ("set_target_in_mixer", Gtk.STOCK_APPLY, _("Set As Target"), None,
+                 _("Set the target colour in the mixer to selected standard paint's colour."),
+                ),
+            ],
+        )
+    def set_target_setable(self, setable):
+        if setable:
+            self.action_groups.update_condns(actions.MaskedCondns(self.AC_TARGET_SETTABLE, self.AC_TARGET_SETTABLE))
+        else:
+            self.action_groups.update_condns(actions.MaskedCondns(0, self.AC_TARGET_SETTABLE))
+    def show_selected_standard_paint_details(self):
+        StandardPaintColourInformationDialogue(self.get_selected_paint()).show()
+    def get_selected_paints(self):
+        """Return the currently selected paints as a list.
+        """
+        model, paths = self.get_selection().get_selected_rows()
+        return [model[p][0] for p in paths]
+    def get_selected_paint(self):
+        selected_paints = self.get_selected_paints()
+        assert len(selected_paints) == 1
+        return selected_paints[0]
+
+class StandardsHueWheelNotebook(gpaint.HueWheelNotebook):
+    PAINT_INFO_DIALOGUE = StandardPaintColourInformationDialogue
+
+class StandardPaintSelector(Gtk.VBox):
+    """
+    A widget for adding paint colours to the mixer
+    """
+    SELECT_STANDARD_PAINT_LIST_VIEW = SelectStandardPaintListView
+    RECOLLECT_SECTION = "paint_standard_selector"
+    def __init__(self, paint_standard):
+        try:
+            recollect.define(self.RECOLLECT_SECTION, "hpaned_position", recollect.Defn(int, 400))
+            recollect.define(self.RECOLLECT_SECTION, "last_size", recollect.Defn(str, "(780, 480)"))
+        except recollect.DuplicateDefn:
+            pass
+        Gtk.VBox.__init__(self)
+        # components
+        self.wheels = StandardsHueWheelNotebook(popup="/colour_wheel_I_popup")
+        #self.wheels.set_wheels_add_paint_acb(self._add_wheel_colour_to_mixer_cb)
+        self.standard_paints_view = self.SELECT_STANDARD_PAINT_LIST_VIEW()
+        self.standard_paints_view.set_size_request(240, 360)
+        model = self.standard_paints_view.get_model()
+        for paint in paint_standard.iter_paints():
+            model.append_paint(paint)
+            self.wheels.add_paint(paint)
+        maker = Gtk.Label(label=_("Sponsor: {0}".format(paint_standard.standard_id.sponsor)))
+        sname = Gtk.Label(label=_("Standard: {0}".format(paint_standard.standard_id.name)))
+        # make connections
+        self.standard_paints_view.action_groups.connect_activate("set_target_in_mixer", self._set_target_in_mixer_cb)
+        # lay the components out
+        self.pack_start(sname, expand=False, fill=True, padding=0)
+        self.pack_start(maker, expand=False, fill=True, padding=0)
+        hpaned = Gtk.HPaned()
+        hpaned.pack1(self.wheels, resize=True, shrink=False)
+        hpaned.pack2(gutils.wrap_in_scrolled_window(self.standard_paints_view), resize=True, shrink=False)
+        self.pack_start(hpaned, expand=True, fill=True, padding=0)
+        hpaned.set_position(recollect.get(self.RECOLLECT_SECTION, "hpaned_position"))
+        hpaned.connect("notify", self._hpaned_notify_cb)
+        self.show_all()
+    def set_target_setable(self, setable):
+        self.standard_paints_view.set_target_setable(setable)
+    def _hpaned_notify_cb(self, widget, parameter):
+        if parameter.name == "position":
+            recollect.set(self.RECOLLECT_SECTION, "hpaned_position", str(widget.get_position()))
+    def _set_target_in_mixer_cb(self, _action):
+        self.emit("set_target_colour", self.standard_paints_view.get_selected_paint())
+GObject.signal_new("set_target_colour", StandardPaintSelector, GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_PYOBJECT,))
+
+class PaintStandardsManager(GObject.GObject, dialogue.ReporterMixin, dialogue.AskerMixin):
+    STANDARD_PAINT_SELECTOR = StandardPaintSelector
     def __init__(self):
+        GObject.GObject.__init__(self)
         self.__standards_dict = dict()
         self._load_standards_data()
-        remove_menu = self._build_submenu()
+        open_menu, remove_menu = self._build_submenus()
+        # Open
+        self.__open_item = Gtk.MenuItem(_("Open"))
+        self.__open_item.set_submenu(open_menu)
+        self.__open_item.set_tooltip_text(_("Open a paint series paint selector."))
+        self.__open_item.show()
         # Remove
         self.__remove_item = Gtk.MenuItem(_("Remove"))
         self.__remove_item.set_submenu(remove_menu)
         self.__remove_item.set_tooltip_text(_("Remove a paint standards from the application."))
         self.__remove_item.show()
     @property
+    def open_menu_item(self):
+        return self.__open_item
+    @property
     def remove_menu_item(self):
         return self.__remove_item
+    def set_target_setable(self, setable):
+        for item in self.__standards_dict.values():
+            item["selector"].set_target_setable(setable)
     def _add_standard_from_file(self, filepath):
         # Check and see if this file is already loaded
         for standard, sdata in self.__standards_dict.items():
@@ -160,7 +291,9 @@ class PaintStandardsManager(dialogue.ReporterMixin, dialogue.AskerMixin):
         fobj.close()
         standard = PaintStandard.fm_definition(text)
         # All OK so we can add this standard to our dictionary
-        self.__standards_dict[standard] = { "filepath" : filepath }
+        selector = self.STANDARD_PAINT_SELECTOR(standard)
+        selector.connect("set_target_colour", self._set_target_in_mixer_cb)
+        self.__standards_dict[standard] = { "filepath" : filepath, "selector" : selector }
         return standard
     def _generate_lexicon(self):
         self.__lexicon = Gtk.ListStore(str)
@@ -204,17 +337,20 @@ class PaintStandardsManager(dialogue.ReporterMixin, dialogue.AskerMixin):
             # Remove the offending files from the saved list
             write_standards_file_names([value["filepath"] for value in self.__standards_dict.values()])
         self._generate_lexicon()
-    def _build_submenu(self):
+    def _build_submenus(self):
+        open_menu = Gtk.Menu()
         remove_menu = Gtk.Menu()
         for standard in sorted(self.__standards_dict.keys()):
             label = "{0.sponsor}: {0.name}".format(standard.standard_id)
-            menu_item = Gtk.MenuItem(label)
-            menu_item.connect("activate", self._remove_paint_standard_cb, standard)
-            menu_item.show()
-            remove_menu.append(menu_item)
-        return remove_menu
-    def _rebuild_submenu(self):
-        remove_menu = self._build_submenu()
+            for menu, cb in [(open_menu, self._open_paint_standard_cb), (remove_menu, self._remove_paint_standard_cb)]:
+                menu_item = Gtk.MenuItem(label)
+                menu_item.connect("activate", cb, standard)
+                menu_item.show()
+                menu.append(menu_item)
+        return (open_menu, remove_menu)
+    def _rebuild_submenus(self):
+        open_menu, remove_menu = self._build_submenus()
+        self.__open_item.set_submenu(open_menu)
         self.__remove_item.set_submenu(remove_menu)
     def add_paint_standard(self):
         dlg = Gtk.FileChooserDialog(
@@ -243,18 +379,47 @@ class PaintStandardsManager(dialogue.ReporterMixin, dialogue.AskerMixin):
         # All OK this standard is in our dictionary
         last_paint_file = recollect.set("paint_standards_manager", "last_file", filepath)
         write_standards_file_names([value["filepath"] for value in self.__standards_dict.values()])
-        self._rebuild_submenu()
+        self._rebuild_submenus()
         self._generate_lexicon()
+    def _open_paint_standard_cb(self, widget, standard):
+        sdata = self.__standards_dict[standard]
+        presenter = sdata.get("presenter", None)
+        if presenter is not None:
+            presenter.present()
+            return
+        # put it in a window and show it
+        window = Gtk.Window(Gtk.WindowType.TOPLEVEL)
+        last_size = recollect.get(self.STANDARD_PAINT_SELECTOR.RECOLLECT_SECTION, "last_size")
+        if last_size:
+            window.set_default_size(*eval(last_size))
+        window.set_icon_from_file(icons.APP_ICON_FILE)
+        window.set_title(_("Paint Standard: {0.sponsor}: {0.name}").format(standard.standard_id))
+        window.add(sdata["selector"])
+        window.connect("destroy", self._destroy_selector_cb, standard)
+        window.connect("size-allocate", self._selector_size_allocation_cb)
+        sdata["presenter"] = window
+        window.show()
+        return True
+    def _selector_size_allocation_cb(self, widget, allocation):
+        recollect.set(self.STANDARD_PAINT_SELECTOR.RECOLLECT_SECTION, "last_size", "({0.width}, {0.height})".format(allocation))
+    def _destroy_selector_cb(self, widget, standard):
+        del self.__standards_dict[standard]["presenter"]
+        widget.remove(self.__standards_dict[standard]["selector"])
+        widget.destroy()
     def _remove_paint_standard_cb(self, widget, standard):
         sde = self.__standards_dict[standard]
         del self.__standards_dict[standard]
         write_standards_file_names([value["filepath"] for value in self.__standards_dict.values()])
-        self._rebuild_submenu()
+        self._rebuild_submenus()
         self._generate_lexicon()
         if "presenter" in sde:
             sde["presenter"].destroy()
         if "selector" in sde:
             sde["selector"].destroy()
+    def _set_target_in_mixer_cb(self, widget, standard_paint):
+        # pass the parcel :-)
+        self.emit("set_target_colour", standard_paint)
+GObject.signal_new("set_target_colour", PaintStandardsManager, GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_PYOBJECT,))
 
 
 class PaintStandardEditor(pedit.PaintCollectionEditor):
