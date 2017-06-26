@@ -695,6 +695,7 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
     PAINT = None
     MATCHED_PAINT_LIST_VIEW = None
     PAINT_SERIES_MANAGER = None
+    PAINT_STANDARDS_MANAGER = None
     PAINT_INFO_DIALOGUE = gpaint.PaintColourInformationDialogue
     MIXED_PAINT_INFORMATION_DIALOGUE = None
     MIXTURE = None
@@ -727,10 +728,10 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
         # Components
         self.paint_series_manager = self.PAINT_SERIES_MANAGER()
         self.paint_series_manager.connect("add-paint-colours", self._add_colours_to_mixer_cb)
-        from . import standards
-        self.standards_manager = standards.PaintStandardsManager()
-        self.standards_manager.connect("set_target_colour", lambda _widget, standard_paint: self._set_new_mixed_colour_fm_standard(standard_paint))
-        self.standards_manager.set_target_setable(True)
+        if self.PAINT_STANDARDS_MANAGER:
+            self.standards_manager = self.PAINT_STANDARDS_MANAGER()
+            self.standards_manager.connect("set_target_colour", lambda _widget, standard_paint: self._set_new_mixed_colour_fm_standard(standard_paint))
+            self.standards_manager.set_target_setable(True)
         self.notes = entries.TextEntryAutoComplete(lexicon.GENERAL_WORDS_LEXICON)
         self.notes.connect("new-words", lexicon.new_general_words_cb)
         self.next_name_label = Gtk.Label(label=_("#???:"))
@@ -794,9 +795,10 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
         msmm = self.ui_manager.get_widget("/mixer_menubar/mixer_series_manager_menu").get_submenu()
         msmm.prepend(self.paint_series_manager.open_menu_item)
         msmm.append(self.paint_series_manager.remove_menu_item)
-        msmm = self.ui_manager.get_widget("/mixer_menubar/mixer_standards_manager_menu").get_submenu()
-        msmm.prepend(self.standards_manager.open_menu_item)
-        msmm.append(self.standards_manager.remove_menu_item)
+        if self.PAINT_STANDARDS_MANAGER:
+            msmm = self.ui_manager.get_widget("/mixer_menubar/mixer_standards_manager_menu").get_submenu()
+            msmm.prepend(self.standards_manager.open_menu_item)
+            msmm.append(self.standards_manager.remove_menu_item)
         self.show_all()
         self.recalculate_colour([])
 
@@ -972,7 +974,8 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
         self.wheels.unset_crosshair()
         self.paint_series_manager.unset_target_colour()
         self.action_groups.update_condns(actions.MaskedCondns(self.AC_DONT_HAVE_TARGET, self.AC_TARGET_MASK))
-        self.standards_manager.set_target_setable(True)
+        if self.PAINT_STANDARDS_MANAGER:
+            self.standards_manager.set_target_setable(True)
         self.next_name_label.set_text(_("#???:"))
         self.current_colour_description.set_text("")
     def _set_new_mixed_colour(self, *, description, colour):
@@ -983,7 +986,8 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
         self.wheels.set_crosshair(self.current_target_colour)
         self.paint_series_manager.set_target_colour(self.current_target_colour)
         self.action_groups.update_condns(actions.MaskedCondns(self.AC_HAVE_TARGET, self.AC_TARGET_MASK))
-        self.standards_manager.set_target_setable(False)
+        if self.PAINT_STANDARDS_MANAGER:
+            self.standards_manager.set_target_setable(False)
         self.next_name_label.set_text(_("#{:03d}:").format(self.mixed_count + 1))
         self.paint_colours.set_sensitive(True)
     def _new_mixed_colour_cb(self,_action):
