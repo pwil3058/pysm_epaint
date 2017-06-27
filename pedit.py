@@ -445,15 +445,22 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
     """
     AC_HAS_COLOUR, AC_NOT_HAS_COLOUR, AC_HAS_FILE, AC_ID_READY, AC_MASK = actions.ActionCondns.new_flags_and_mask(4)
 
-    def __init__(self):
+    def __init__(self, pack_current_file_box=True):
         recollect.define(self.RECOLLECT_SECTION, "hpaned_position", recollect.Defn(int, -1))
         recollect.define(self.RECOLLECT_SECTION, "last_file", recollect.Defn(str, ""))
         Gtk.HPaned.__init__(self)
         actions.CAGandUIManager.__init__(self)
         #
-        self._file_path_text = Gtk.Entry()
+        self._file_path_text = Gtk.Label()
+        self._file_path_text.set_justify(Gtk.Justification.LEFT)
+        self._file_path_text.set_xalign(0.0)
         self._file_status_indicator = Gtk.Button.new_from_icon_name(Gtk.STOCK_NO, Gtk.IconSize.BUTTON)
         self._file_status_indicator.connect("clicked", lambda _button: self._smart_save())
+        self._file_status_indicator.set_tooltip_text(_("Status of the current file."))
+        self.current_file_box = Gtk.HBox()
+        self.current_file_box.pack_start(Gtk.Label(_("Current File: ")), expand=False, fill=True, padding=0)
+        self.current_file_box.pack_start(self._file_path_text, expand=True, fill=True, padding=0)
+        self.current_file_box.pack_start(self._file_status_indicator, expand=False, fill=True, padding=0)
         self.set_file_path(None)
         self.set_current_colour(None)
         self.saved_hash = None
@@ -480,11 +487,8 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
         self.set_current_colour(None)
         # Now arrange them
         vbox = Gtk.VBox()
-        hbox = Gtk.HBox()
-        hbox.pack_start(Gtk.Label(_("Current File:")), expand=False, fill=True, padding=0)
-        hbox.pack_start(self._file_path_text, expand=True, fill=True, padding=0)
-        hbox.pack_start(self._file_status_indicator, expand=False, fill=True, padding=0)
-        vbox.pack_start(hbox, expand=False, fill=True, padding=0)
+        if pack_current_file_box:
+            vbox.pack_start(self.current_file_box, expand=False, fill=True, padding=0)
         table = Gtk.Table(rows=2, columns=2, homogeneous=False)
         table.attach(mnlabel, 0, 1, 0, 1, xoptions=0)
         table.attach(snlabel, 0, 1, 1, 2, xoptions=0)
