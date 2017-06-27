@@ -993,7 +993,7 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
     def _new_mixed_colour_cb(self,_action):
         class Dialogue(NewMixedColourDialogue):
             COLOUR = self.PAINT.COLOUR
-        dlg = Dialogue(self.mixed_count + 1, self.get_parent())
+        dlg = Dialogue(self.mixed_count + 1, self.get_toplevel())
         if dlg.run() == Gtk.ResponseType.ACCEPT:
             descr = dlg.colour_description.get_text()
             assert len(descr) > 0
