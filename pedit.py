@@ -624,7 +624,12 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
             condns |= self.AC_ID_READY
         return actions.MaskedCondns(condns, self.AC_MASK)
 
-    def _definition_matches_hash(self):
+    @property
+    def has_definition_in_progress(self):
+        return self.proprietor_name.get_text_length() or  self.collection_name.get_text_length() or len(self.paint_colours)
+
+    @property
+    def definition_matches_hash(self):
         dtext = self.get_definition_text()
         return hashlib.sha1(dtext.encode()).digest() == self.saved_hash
 
@@ -632,14 +637,11 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
         """
         Check that the last saved definition is up to date
         """
-        if not self.colour_edit_state_ok():
+        if not self.colour_edit_state_ok:
             return False
-        manl = self.proprietor_name.get_text_length()
-        serl = self.collection_name.get_text_length()
-        coll = len(self.paint_colours)
-        if manl == 0 and serl == 0 and coll == 0:
+        if not self.has_definition_in_progress:
             return True
-        if self._definition_matches_hash():
+        if self.definition_matches_hash:
             return True
         parent = self.get_toplevel()
         dlg = UnsavedChangesDialogue(
@@ -682,7 +684,7 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
         else:
             condns = self.AC_ID_READY
         self.action_groups.update_condns(actions.MaskedCondns(condns, self.AC_ID_READY))
-        self.set_status_indicator(clean=self._definition_matches_hash())
+        self.set_status_indicator(clean=self.definition_matches_hash)
 
     def set_current_colour(self, colour):
         """
@@ -707,41 +709,47 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
             recollect.set(self.RECOLLECT_SECTION, "last_file", file_path)
         self.emit("file_changed", self.file_path)
 
+    @property
+    def has_unadded_new_paint(self):
+        return self.current_colour is None and self.paint_editor.colour_name.get_text_length() > 0
+
+    @property
+    def has_unsaved_edited_paint(self):
+        return self.current_colour and self.current_colour != self.paint_editor.get_paint()
+
+    @property
     def colour_edit_state_ok(self):
-        if self.current_colour is None:
-            if self.paint_editor.colour_name.get_text_length() > 0:
-                parent = self.get_toplevel()
-                msg = _("New colour \"{0}\" has not been added to the collection.").format(self.paint_editor.colour_name.get_text())
-                dlg = UnaddedNewColourDialogue(parent=parent if isinstance(parent, Gtk.Window) else None,message=msg)
-                response = dlg.run()
-                dlg.destroy()
-                return response == UnaddedNewColourDialogue.DISCARD_AND_CONTINUE
-        else:
-            edit_colour = self.paint_editor.get_paint()
-            if self.current_colour != edit_colour:
-                parent = self.get_toplevel()
-                msg = _("Colour \"{0}\" has changes that have not been accepted.").format(edit_colour.name)
-                dlg = UnacceptedChangesDialogue(parent=parent if isinstance(parent, Gtk.Window) else None,message=msg)
-                response = dlg.run()
-                dlg.destroy()
-                if response == UnacceptedChangesDialogue.ACCEPT_CHANGES_AND_CONTINUE:
-                    self._accept_colour_changes_cb()
-                    return True
-                else:
-                    return response == UnacceptedChangesDialogue.CONTINUE_DISCARDING_CHANGES
+        if self.has_unadded_new_paint:
+            parent = self.get_toplevel()
+            msg = _("New colour \"{0}\" has not been added to the collection.").format(self.paint_editor.colour_name.get_text())
+            dlg = UnaddedNewColourDialogue(parent=parent if isinstance(parent, Gtk.Window) else None,message=msg)
+            response = dlg.run()
+            dlg.destroy()
+            return response == UnaddedNewColourDialogue.DISCARD_AND_CONTINUE
+        elif self.has_unsaved_edited_paint:
+            parent = self.get_toplevel()
+            msg = _("Colour \"{0}\" has changes that have not been accepted.").format(self.paint_editor.get_paint().name)
+            dlg = UnacceptedChangesDialogue(parent=parent if isinstance(parent, Gtk.Window) else None,message=msg)
+            response = dlg.run()
+            dlg.destroy()
+            if response == UnacceptedChangesDialogue.ACCEPT_CHANGES_AND_CONTINUE:
+                self._accept_colour_changes_cb()
+                return True
+            else:
+                return response == UnacceptedChangesDialogue.CONTINUE_DISCARDING_CHANGES
         return True
 
     def _edit_selected_colour_cb(self, _action):
         """
         Load the selected paint colour into the editor
         """
-        if self.colour_edit_state_ok():
+        if self.colour_edit_state_ok:
             paint = self.paint_colours.paint_list.get_selected_paints()[0]
             self.paint_editor.set_paint(paint)
             self.set_current_colour(paint)
 
     def _load_wheel_colour_into_editor_cb(self, _action, wheel):
-        if self.colour_edit_state_ok():
+        if self.colour_edit_state_ok:
             paint = wheel.popup_colour
             if paint:
                 self.paint_editor.set_paint(paint)
@@ -768,7 +776,7 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
         self.set_status_indicator(clean=False)
 
     def _reset_colour_editor_cb(self, _widget):
-        if self.colour_edit_state_ok():
+        if self.colour_edit_state_ok:
             self.paint_editor.reset()
             self.set_current_colour(None)
 
