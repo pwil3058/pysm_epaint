@@ -441,7 +441,7 @@ class PaintStandardEditor(pedit.PaintCollectionEditor):
             return self.alert_user(_("Format Error:  {}: {}").format(edata, filepath))
         # All OK so clear the paint editor and ditch the current colours
         self.paint_editor.reset()
-        self.set_current_colour(None)
+        self._set_current_extant_paint(None)
         self.paint_colours.clear()
         # and load the new ones
         for paint in standard.iter_paints():

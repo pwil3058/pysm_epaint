@@ -443,7 +443,7 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
       </menubar>
     </ui>
     """
-    AC_HAS_COLOUR, AC_NOT_HAS_COLOUR, AC_HAS_FILE, AC_ID_READY, AC_MASK = actions.ActionCondns.new_flags_and_mask(4)
+    AC_EDITING_EXTANT_PAINT, AC_NOT_EDITING_EXTANT_PAINT, AC_HAS_FILE, AC_ID_READY, AC_MASK = actions.ActionCondns.new_flags_and_mask(4)
 
     def __init__(self, pack_current_file_box=True):
         recollect.define(self.RECOLLECT_SECTION, "hpaned_position", recollect.Defn(int, -1))
@@ -462,7 +462,7 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
         self.current_file_box.pack_start(self._file_path_text, expand=True, fill=True, padding=0)
         self.current_file_box.pack_start(self._file_status_indicator, expand=False, fill=True, padding=0)
         self.set_file_path(None)
-        self.set_current_colour(None)
+        self._set_current_extant_paint(None)
         self.saved_hash = None
         self.__closed = False
 
@@ -484,7 +484,7 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
         self.collection_name.connect("new-words", lexicon.new_general_words_cb)
         self.collection_name.connect("changed", self._id_changed_cb)
         snlabel = Gtk.Label(label=_(self.PAINT_COLLECTION.NAME_LABEL + ":"))
-        self.set_current_colour(None)
+        self._set_current_extant_paint(None)
         # Now arrange them
         vbox = Gtk.VBox()
         if pack_current_file_box:
@@ -558,12 +558,12 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
             _("Auto matically match the colour to the sample images."),
             self._automatch_sample_images_raw_cb),
         ])
-        self.action_groups[PaintEditor.AC_READY|self.AC_NOT_HAS_COLOUR].add_actions([
+        self.action_groups[PaintEditor.AC_READY|self.AC_NOT_EDITING_EXTANT_PAINT].add_actions([
             ("add_colour_into_collection", None, _("Add"), None,
             _("Accept this colour and add it to the collection."),
             self._add_colour_into_collection_cb),
         ])
-        self.action_groups[PaintEditor.AC_READY|self.AC_HAS_COLOUR].add_actions([
+        self.action_groups[PaintEditor.AC_READY|self.AC_EDITING_EXTANT_PAINT].add_actions([
             ("accept_colour_changes", None, _("Accept"), None,
             _("Accept the changes made to this colour."),
             self._accept_colour_changes_cb),
@@ -614,10 +614,10 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
 
     def get_masked_condns(self):
         condns = 0
-        if self.current_colour is None:
-            condns |= self.AC_NOT_HAS_COLOUR
+        if self._current_extant_paint is None:
+            condns |= self.AC_NOT_EDITING_EXTANT_PAINT
         else:
-            condns |= self.AC_HAS_COLOUR
+            condns |= self.AC_EDITING_EXTANT_PAINT
         if self.file_path is not None:
             condns |= self.AC_HAS_FILE
         if self.id_is_ready:
@@ -686,14 +686,14 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
         self.action_groups.update_condns(actions.MaskedCondns(condns, self.AC_ID_READY))
         self.set_status_indicator(clean=self.definition_matches_hash)
 
-    def set_current_colour(self, colour):
+    def _set_current_extant_paint(self, paint):
         """
-        Set a reference to the colour currently being edited and
+        Set a reference to the paint currently being edited and
         update action conditions for this change
         """
-        self.current_colour = colour
-        mask = self.AC_NOT_HAS_COLOUR + self.AC_HAS_COLOUR
-        condns = self.AC_NOT_HAS_COLOUR if colour is None else self.AC_HAS_COLOUR
+        self._current_extant_paint = paint
+        mask = self.AC_NOT_EDITING_EXTANT_PAINT + self.AC_EDITING_EXTANT_PAINT
+        condns = self.AC_NOT_EDITING_EXTANT_PAINT if paint is None else self.AC_EDITING_EXTANT_PAINT
         self.action_groups.update_condns(actions.MaskedCondns(condns, mask))
 
     def set_file_path(self, file_path):
@@ -711,11 +711,11 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
 
     @property
     def has_unadded_new_paint(self):
-        return self.current_colour is None and self.paint_editor.colour_name.get_text_length() > 0
+        return self._current_extant_paint is None and self.paint_editor.colour_name.get_text_length() > 0
 
     @property
     def has_unsaved_edited_paint(self):
-        return self.current_colour and self.current_colour != self.paint_editor.get_paint()
+        return self._current_extant_paint and self._current_extant_paint != self.paint_editor.get_paint()
 
     @property
     def colour_edit_state_ok(self):
@@ -746,21 +746,21 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
         if self.colour_edit_state_ok:
             paint = self.paint_colours.paint_list.get_selected_paints()[0]
             self.paint_editor.set_paint(paint)
-            self.set_current_colour(paint)
+            self._set_current_extant_paint(paint)
 
     def _load_wheel_colour_into_editor_cb(self, _action, wheel):
         if self.colour_edit_state_ok:
             paint = wheel.popup_colour
             if paint:
                 self.paint_editor.set_paint(paint)
-                self.set_current_colour(paint)
+                self._set_current_extant_paint(paint)
 
     def _ask_overwrite_ok(self, name):
         return self.ask_ok_cancel(_("A colour with the name \"{0}\" already exists.\n Overwrite?").format(name))
 
     def _accept_colour_changes_cb(self, _widget=None):
         edited_colour = self.paint_editor.get_paint()
-        if edited_colour.name != self.current_colour.name:
+        if edited_colour.name != self._current_extant_paint.name:
             # there's a name change so check for duplicate names
             other_colour = self.paint_colours.get_paint_with_name(edited_colour.name)
             if other_colour is not None:
@@ -769,16 +769,16 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
                 else:
                     return
         # and do a full replace to make sure the view gets updated
-        self.paint_colours.remove_paint(self.current_colour)
+        self.paint_colours.remove_paint(self._current_extant_paint)
         self.paint_colours.add_paint(edited_colour)
-        self.current_colour = edited_colour
+        self._set_current_extant_paint(edited_colour)
         self.paint_colours.queue_draw()
         self.set_status_indicator(clean=False)
 
     def _reset_colour_editor_cb(self, _widget):
         if self.colour_edit_state_ok:
             self.paint_editor.reset()
-            self.set_current_colour(None)
+            self._set_current_extant_paint(None)
 
     def _start_new_paint_collection(self):
         """
@@ -791,7 +791,7 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
         self.proprietor_name.set_text("")
         self.collection_name.set_text("")
         self.set_file_path(None)
-        self.set_current_colour(None)
+        self._set_current_extant_paint(None)
         self.saved_hash = None
         self.set_status_indicator(clean=False)
 
@@ -805,10 +805,10 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
             old_colour.set_extras(**new_colour.get_extras())
             old_colour.set_characteristics(**new_colour.characteristics.get_kwargs())
             self.paint_colours.queue_draw()
-            self.set_current_colour(old_colour)
+            self._set_current_extant_paint(old_colour)
         else:
             self.paint_colours.add_paint(new_colour)
-            self.set_current_colour(new_colour)
+            self._set_current_extant_paint(new_colour)
         self.set_status_indicator(clean=False)
 
     def _automatch_sample_images_max_chroma_cb(self, _widget):
