@@ -470,7 +470,7 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
         self.paint_editor = self.PAINT_EDITOR()
         self.paint_editor.connect("changed", self._paint_editor_change_cb)
         self.paint_editor.colour_matcher.sample_display.connect("samples-changed", self._sample_change_cb)
-        self.buttons = self.action_groups.create_action_button_box(self.BUTTONS)
+        self.buttons = self.create_action_button_box(self.BUTTONS)
         self.paint_colours = self.PAINT_LIST_NOTEBOOK(wheel_popup="/colour_wheel_EI_popup")
         self.paint_colours.set_wheels_edit_paint_acb(self._load_wheel_colour_into_editor_cb)
         self.paint_colours.set_size_request(480, 480)
@@ -591,13 +591,6 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
              _("Load a paint collection from a file for editing."),
              lambda _action: self._open_paint_collection_file()
             ),
-            ("take_screen_sample", None, _("Take Sample"), None,
-             _("Take a sample of an arbitrary selected section of the screen and add it to the clipboard."),
-             lambda _action: screen.take_screen_sample()
-            ),
-            ("open_sample_viewer", None, _("Open Sample Viewer"), None,
-            _("Open a graphics file containing colour samples."),
-            self._open_sample_viewer_cb),
             ("close_colour_editor", Gtk.STOCK_CLOSE, None, None,
              _("Close this window."),
              lambda _action: self._close_colour_editor()
@@ -915,7 +908,7 @@ class SampleViewer(Gtk.Window, actions.CAGandUIManager):
     """
     TITLE_TEMPLATE = _("mcmmtk: Colour Sample: {}")
 
-    def __init__(self, parent):
+    def __init__(self):
         Gtk.Window.__init__(self, Gtk.WindowType.TOPLEVEL)
         actions.CAGandUIManager.__init__(self)
         last_size = recollect.get("sample_viewer", "last_size")
@@ -999,3 +992,15 @@ class SampleViewer(Gtk.Window, actions.CAGandUIManager):
 
     def _close_colour_sample_viewer_cb(self, _action):
         self.get_toplevel().destroy()
+
+actions.CLASS_INDEP_AGS[actions.AC_DONT_CARE].add_actions([
+    ("mcmmtk_samples_menu", None, _("Samples")),
+    ("take_screen_sample", None, _("Take Sample"), None,
+     _("Take a sample of an arbitrary selected section of the screen and add it to the clipboard."),
+     lambda _action: screen.take_screen_sample()
+    ),
+    ("open_sample_viewer", None, _("Open Sample Viewer"), None,
+     _("Open a graphics file containing colour samples."),
+     lambda _action: SampleViewer().show()
+    ),
+])
