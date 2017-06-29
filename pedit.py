@@ -47,6 +47,8 @@ from . import pchar
 from . import rgbh
 from . import vpaint
 
+from .. import APP_NAME
+
 __all__ = []
 __author__ = "Peter Williams <pwil3058@gmail.com>"
 
@@ -419,6 +421,7 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
     PAINT_COLLECTION = None
     RECOLLECT_SECTION = "editor"
     FILE_NAME_PROMPT = None
+    LABEL = None
     BUTTONS = [
             "add_colour_into_collection",
             "accept_colour_changes",
@@ -626,11 +629,15 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
         dtext = self.get_definition_text()
         return hashlib.sha1(dtext.encode()).digest() == self.saved_hash
 
+    @property
+    def has_unsaved_changes(self):
+        return self.has_unadded_new_paint or self.has_unsaved_edited_paint or (self.has_definition_in_progress and not self.definition_matches_hash)
+
     def unsaved_changes_ok(self):
         """
         Check that the last saved definition is up to date
         """
-        if not self.colour_edit_state_ok:
+        if not self.paint_edit_state_ok():
             return False
         if not self.has_definition_in_progress:
             return True
@@ -641,6 +648,7 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
             parent=parent if isinstance(parent, Gtk.Window) else None,
             message=_("The collection definition has unsaved changes.")
         )
+        dlg.set_title("{}: {}".format(APP_NAME, self.LABEL))
         response = dlg.run()
         dlg.destroy()
         if response == Gtk.ResponseType.CANCEL:
@@ -710,19 +718,20 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
     def has_unsaved_edited_paint(self):
         return self._current_extant_paint and self._current_extant_paint != self.paint_editor.get_paint()
 
-    @property
-    def colour_edit_state_ok(self):
+    def paint_edit_state_ok(self):
         if self.has_unadded_new_paint:
             parent = self.get_toplevel()
-            msg = _("New colour \"{0}\" has not been added to the collection.").format(self.paint_editor.colour_name.get_text())
+            msg = _("New paint \"{0}\" has not been added to the collection.").format(self.paint_editor.colour_name.get_text())
             dlg = UnaddedNewColourDialogue(parent=parent if isinstance(parent, Gtk.Window) else None,message=msg)
+            dlg.set_title("{}: {}".format(APP_NAME, self.LABEL))
             response = dlg.run()
             dlg.destroy()
             return response == UnaddedNewColourDialogue.DISCARD_AND_CONTINUE
         elif self.has_unsaved_edited_paint:
             parent = self.get_toplevel()
-            msg = _("Colour \"{0}\" has changes that have not been accepted.").format(self.paint_editor.get_paint().name)
+            msg = _("Paint \"{0}\" has changes that have not been accepted.").format(self.paint_editor.get_paint().name)
             dlg = UnacceptedChangesDialogue(parent=parent if isinstance(parent, Gtk.Window) else None,message=msg)
+            dlg.set_title("{}: {}".format(APP_NAME, self.LABEL))
             response = dlg.run()
             dlg.destroy()
             if response == UnacceptedChangesDialogue.ACCEPT_CHANGES_AND_CONTINUE:
@@ -736,13 +745,13 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
         """
         Load the selected paint colour into the editor
         """
-        if self.colour_edit_state_ok:
+        if self.paint_edit_state_ok():
             paint = self.paint_colours.paint_list.get_selected_paints()[0]
             self.paint_editor.set_paint(paint)
             self._set_current_extant_paint(paint)
 
     def _load_wheel_colour_into_editor_cb(self, _action, wheel):
-        if self.colour_edit_state_ok:
+        if self.paint_edit_state_ok():
             paint = wheel.popup_colour
             if paint:
                 self.paint_editor.set_paint(paint)
@@ -769,7 +778,7 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
         self.set_status_indicator(clean=False)
 
     def _reset_colour_editor_cb(self, _widget):
-        if self.colour_edit_state_ok:
+        if self.paint_edit_state_ok():
             self.paint_editor.reset()
             self._set_current_extant_paint(None)
 

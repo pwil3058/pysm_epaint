@@ -428,6 +428,7 @@ class PaintStandardEditor(pedit.PaintCollectionEditor):
     PAINT_COLLECTION = PaintStandard
     RECOLLECT_SECTION = "stds_editor"
     FILE_NAME_PROMPT = _("Paint Standard Description File:")
+    LABEL = _("Paint Standards Editor")
 
     def load_fm_file(self, filepath):
         try:

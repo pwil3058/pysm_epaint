@@ -204,6 +204,7 @@ class PaintSeriesEditor(pedit.PaintCollectionEditor):
     PAINT_COLLECTION = PaintSeries
     RECOLLECT_SECTION = "editor"
     FILE_NAME_PROMPT = _("Paint Series Description File:")
+    LABEL = _("Paint Series Editor")
 
     def load_fm_file(self, filepath):
         try:
