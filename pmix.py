@@ -575,7 +575,7 @@ class ReferenceImageViewer(Gtk.Window, actions.CAGandUIManager):
     </ui>
     """
     TITLE_TEMPLATE = _("mcmmtk: Reference Image: {}")
-    def __init__(self, parent):
+    def __init__(self, parent=None):
         Gtk.Window.__init__(self, Gtk.WindowType.TOPLEVEL)
         actions.CAGandUIManager.__init__(self)
         last_size = recollect.get("reference_image_viewer", "last_size")
@@ -605,7 +605,7 @@ class ReferenceImageViewer(Gtk.Window, actions.CAGandUIManager):
         vbox.pack_start(self.ref_image, expand=True, fill=True, padding=0)
         vbox.pack_start(self.buttons, expand=False, fill=True, padding=0)
         self.add(vbox)
-        self.set_transient_for(parent)
+        self.set_transient_for(parent if parent else dialogue.main_window)
         self.connect("size-allocate", self._size_allocation_cb)
         self.show_all()
         if pixbuf is not None:
@@ -840,10 +840,6 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
             ("quit_mixer", Gtk.STOCK_QUIT, None, None,
              _("Quit this program."),
              lambda _action: self._quit_mixer()
-            ),
-            ("open_reference_image_viewer", None, _("Open Image Viewer"), None,
-             _("Open a tool for viewing reference images."),
-             self._open_reference_image_viewer_cb
             ),
             ("print_mixer", Gtk.STOCK_PRINT, None, None,
              _("Print a text description of the mixer."),
@@ -1081,3 +1077,11 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
         """
         # TODO: add checks for unsaved work in mixer before exiting
         Gtk.main_quit()
+
+actions.CLASS_INDEP_AGS[actions.AC_DONT_CARE].add_actions([
+    ("mcmmtk_reference_resource_menu", None, _("Reference Resources")),
+    ("open_reference_image_viewer", None, _("Open Image Viewer"), None,
+     _("Open a tool for viewing reference images."),
+     lambda _action: ReferenceImageViewer().show()
+    ),
+])

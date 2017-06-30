@@ -917,7 +917,7 @@ class SampleViewer(Gtk.Window, actions.CAGandUIManager):
     """
     TITLE_TEMPLATE = _("mcmmtk: Colour Sample: {}")
 
-    def __init__(self):
+    def __init__(self, parent=None):
         Gtk.Window.__init__(self, Gtk.WindowType.TOPLEVEL)
         actions.CAGandUIManager.__init__(self)
         last_size = recollect.get("sample_viewer", "last_size")
@@ -947,6 +947,7 @@ class SampleViewer(Gtk.Window, actions.CAGandUIManager):
         vbox.pack_start(self.pixbuf_view, expand=True, fill=True, padding=0)
         vbox.pack_start(self.buttons, expand=False, fill=True, padding=0)
         self.add(vbox)
+        self.set_transient_for(parent if parent else dialogue.main_window)
         self.connect("size-allocate", self._size_allocation_cb)
         self.show_all()
         self.pixbuf_view.set_pixbuf(pixbuf)
