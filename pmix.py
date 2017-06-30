@@ -721,15 +721,18 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
     """
     AC_HAVE_MIXTURE, AC_MASK = actions.ActionCondns.new_flags_and_mask(1)
     AC_HAVE_TARGET, AC_DONT_HAVE_TARGET, AC_TARGET_MASK = actions.ActionCondns.new_flags_and_mask(2)
-    def __init__(self):
+    def __init__(self, *, paint_series_manager=None, paint_standards_manager=None):
         Gtk.VBox.__init__(self)
         actions.CAGandUIManager.__init__(self)
         self.action_groups.update_condns(actions.MaskedCondns(self.AC_DONT_HAVE_TARGET, self.AC_TARGET_MASK))
         # Components
-        self.paint_series_manager = self.PAINT_SERIES_MANAGER()
+        self.paint_series_manager = paint_series_manager if paint_series_manager else self.PAINT_SERIES_MANAGER()
         self.paint_series_manager.connect("add-paint-colours", self._add_colours_to_mixer_cb)
         if self.PAINT_STANDARDS_MANAGER:
-            self.standards_manager = self.PAINT_STANDARDS_MANAGER()
+            self.standards_manager = paint_standards_manager if paint_standards_manager else self.PAINT_STANDARDS_MANAGER()
+        else:
+            self.standards_manager = paint_standards_manager
+        if self.standards_manager:
             self.standards_manager.connect("set_target_colour", lambda _widget, standard_paint: self._set_new_mixed_colour_fm_standard(standard_paint))
             self.standards_manager.set_target_setable(True)
         self.notes = entries.TextEntryAutoComplete(lexicon.GENERAL_WORDS_LEXICON)
@@ -792,13 +795,17 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
         vpaned.connect("notify", self._paned_notify_cb)
         hpaned.connect("notify", self._paned_notify_cb)
         self.connect("key-press-event", self.handle_key_press_cb)
-        msmm = self.ui_manager.get_widget("/mixer_menubar/mixer_series_manager_menu").get_submenu()
-        msmm.prepend(self.paint_series_manager.open_menu_item)
-        msmm.append(self.paint_series_manager.remove_menu_item)
-        if self.PAINT_STANDARDS_MANAGER:
-            msmm = self.ui_manager.get_widget("/mixer_menubar/mixer_standards_manager_menu").get_submenu()
-            msmm.prepend(self.standards_manager.open_menu_item)
-            msmm.append(self.standards_manager.remove_menu_item)
+        msm = self.ui_manager.get_widget("/mixer_menubar/mixer_series_manager_menu")
+        if msm:
+            msmm = msm.get_submenu()
+            msmm.prepend(self.paint_series_manager.open_menu_item)
+            msmm.append(self.paint_series_manager.remove_menu_item)
+        if self.standards_manager:
+            msm = self.ui_manager.get_widget("/mixer_menubar/mixer_standards_manager_menu")
+            if msm:
+                msmm = msm.get_submenu()
+                msmm.prepend(self.standards_manager.open_menu_item)
+                msmm.append(self.standards_manager.remove_menu_item)
         self.show_all()
         self.recalculate_colour([])
 
@@ -970,7 +977,7 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
         self.wheels.unset_crosshair()
         self.paint_series_manager.unset_target_colour()
         self.action_groups.update_condns(actions.MaskedCondns(self.AC_DONT_HAVE_TARGET, self.AC_TARGET_MASK))
-        if self.PAINT_STANDARDS_MANAGER:
+        if self.standards_manager:
             self.standards_manager.set_target_setable(True)
         self.next_name_label.set_text(_("#???:"))
         self.current_colour_description.set_text("")
@@ -982,7 +989,7 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
         self.wheels.set_crosshair(self.current_target_colour)
         self.paint_series_manager.set_target_colour(self.current_target_colour)
         self.action_groups.update_condns(actions.MaskedCondns(self.AC_HAVE_TARGET, self.AC_TARGET_MASK))
-        if self.PAINT_STANDARDS_MANAGER:
+        if self.standards_manager:
             self.standards_manager.set_target_setable(False)
         self.next_name_label.set_text(_("#{:03d}:").format(self.mixed_count + 1))
         #self.paint_colours.set_sensitive(True)
