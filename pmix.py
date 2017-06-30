@@ -144,7 +144,7 @@ class PaintPartsSpinButton(Gtk.EventBox, actions.CAGandUIManager):
             </popup>
         </ui>
         """
-    def __init__(self, paint, sensitive=False, *kwargs):
+    def __init__(self, paint, sensitive=True, *kwargs):
         Gtk.EventBox.__init__(self)
         actions.CAGandUIManager.__init__(self, popup="/paint_spinner_popup")
         self.add_events(Gdk.EventMask.BUTTON_PRESS_MASK|Gdk.EventMask.BUTTON_RELEASE_MASK)
@@ -202,13 +202,13 @@ class PaintPartsSpinButtonBox(Gtk.VBox):
     """
     A dynamic array of coloured spinners
     """
-    def __init__(self):
+    def __init__(self, sensitive=True):
         Gtk.VBox.__init__(self)
         self.__spinbuttons = []
         self.__hboxes = []
         self.__count = 0
         self.__ncols = 6
-        self.__sensitive = False
+        self.set_sensitive(sensitive)
         self.__suppress_change_notification = False
     def set_sensitive(self, sensitive):
         self.__sensitive = sensitive
@@ -960,7 +960,7 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
         self.mixed_colours.append_paint(new_colour, target_colour)
         self.wheels.add_paint(new_colour)
         self.reset_parts()
-        self.paint_colours.set_sensitive(False)
+        #self.paint_colours.set_sensitive(False)
         self.mixpanel.clear()
         self.current_colour_description.set_text("")
         self.wheels.add_target_colour(name, target_colour)
@@ -985,7 +985,7 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
         if self.PAINT_STANDARDS_MANAGER:
             self.standards_manager.set_target_setable(False)
         self.next_name_label.set_text(_("#{:03d}:").format(self.mixed_count + 1))
-        self.paint_colours.set_sensitive(True)
+        #self.paint_colours.set_sensitive(True)
     def _new_mixed_colour_cb(self,_action):
         class Dialogue(NewMixedColourDialogue):
             COLOUR = self.PAINT.COLOUR
