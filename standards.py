@@ -283,8 +283,11 @@ class PaintStandardsManager(GObject.GObject, dialogue.ReporterMixin, dialogue.As
         # Check and see if this file is already loaded
         for standard, sdata in self.__standards_dict.items():
             if filepath == sdata["filepath"]:
-                self.alert_user(_("File \"{0}\" is already loaded providing standard \"{1.standard_id.sponsor}: {1.standard_id.name}\".\nAborting.").format(filepath, standard))
-                return None
+                if self.ask_ok_cancel(_("File \"{0}\" is already loaded. Reload?").format(filepath), _("Provides standard \"{0.standard_id.sponsor}: {0.standard_id.name}\".").format(standard)):
+                    self._remove_paint_standard(standard)
+                    break
+                else:
+                    return None
         # We let the clients handle any exceptions
         fobj = open(filepath, "r")
         text = fobj.read()
@@ -381,7 +384,10 @@ class PaintStandardsManager(GObject.GObject, dialogue.ReporterMixin, dialogue.As
         write_standards_file_names([value["filepath"] for value in self.__standards_dict.values()])
         self._rebuild_submenus()
         self._generate_lexicon()
-    def _open_paint_standard_cb(self, widget, standard):
+        self._open_paint_standard(standard)
+    def _open_paint_standard_cb(self, _widget, standard):
+        return self._open_paint_standard(standard)
+    def _open_paint_standard(self, standard):
         sdata = self.__standards_dict[standard]
         presenter = sdata.get("presenter", None)
         if presenter is not None:
@@ -407,6 +413,8 @@ class PaintStandardsManager(GObject.GObject, dialogue.ReporterMixin, dialogue.As
         widget.remove(self.__standards_dict[standard]["selector"])
         widget.destroy()
     def _remove_paint_standard_cb(self, widget, standard):
+        self._remove_paint_standard(standard)
+    def _remove_paint_standard(self, standard):
         sde = self.__standards_dict[standard]
         del self.__standards_dict[standard]
         write_standards_file_names([value["filepath"] for value in self.__standards_dict.values()])

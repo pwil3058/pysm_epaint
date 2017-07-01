@@ -292,7 +292,7 @@ GObject.signal_new("add-paint-colours", PaintSelector, GObject.SignalFlags.RUN_L
 
 recollect.define("paint_series_selector", "last_file", recollect.Defn(str, os.path.join(SYS_DATA_DIR_PATH, 'ideal.psd')))
 
-class PaintSeriesManager(GObject.GObject, dialogue.ReporterMixin):
+class PaintSeriesManager(GObject.GObject, dialogue.ReporterMixin, dialogue.AskerMixin):
     PAINT_SELECTOR = None
     def __init__(self):
         GObject.GObject.__init__(self)
@@ -328,8 +328,11 @@ class PaintSeriesManager(GObject.GObject, dialogue.ReporterMixin):
         # Check and see if this file is already loaded
         for series, sdata in self.__series_dict.items():
             if filepath == sdata["filepath"]:
-                self.alert_user(_("File \"{0}\" is already loaded providing series \"{1.series_id.maker}: {1.series_id.name}\".\nAborting.").format(filepath, series))
-                return None
+                if self.ask_ok_cancel(_("File \"{0}\" is already loaded. Reload?").format(filepath), _("Provides series \"{0.series_id.maker}: {0.series_id.name}\".").format(series)):
+                    self._remove_paint_series(series)
+                    break
+                else:
+                    return None
         # We let the clients handle any exceptions
         fobj = open(filepath, "r")
         text = fobj.read()
@@ -408,8 +411,10 @@ class PaintSeriesManager(GObject.GObject, dialogue.ReporterMixin):
         last_paint_file = recollect.set("paint_series_selector", "last_file", filepath)
         write_series_file_names([value["filepath"] for value in self.__series_dict.values()])
         self._rebuild_submenus()
-        self._open_paint_series_cb(None, series)
+        self._open_paint_series(series)
     def _open_paint_series_cb(self, widget, series):
+        return self._open_paint_series(series)
+    def _open_paint_series(self, series):
         sdata = self.__series_dict[series]
         presenter = sdata.get("presenter", None)
         if presenter is not None:
@@ -434,7 +439,9 @@ class PaintSeriesManager(GObject.GObject, dialogue.ReporterMixin):
         del self.__series_dict[series]["presenter"]
         widget.remove(self.__series_dict[series]["selector"])
         widget.destroy()
-    def _remove_paint_series_cb(self, widget, series):
+    def _remove_paint_series_cb(self, _widget, series):
+        self._remove_paint_series(series)
+    def _remove_paint_series(self, series):
         sde = self.__series_dict[series]
         del self.__series_dict[series]
         write_series_file_names([value["filepath"] for value in self.__series_dict.values()])
