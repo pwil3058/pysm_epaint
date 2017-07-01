@@ -760,6 +760,7 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
             "accept_mixed_colour",
             "simplify_contributions",
             "reset_contributions",
+            "cancel_mixed_colour",
             "remove_unused_paints"
         ])
         menubar = self.ui_manager.get_widget("/mixer_menubar")
@@ -834,7 +835,7 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
             ("reference_resource_menu", None, _("Reference Resources")),
             ("remove_unused_paints", None, _("Remove Unused Paints"), None,
              _("Remove all unused paints from the mixer."),
-             self._remove_unused_paints_cb
+             lambda _action: self._remove_unused_paints()
             ),
             ("mixer_load_paint_series", None, _("Load"), None,
              _("Load a paint series from a file."),
@@ -850,26 +851,35 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
             ),
             ("print_mixer", Gtk.STOCK_PRINT, None, None,
              _("Print a text description of the mixer."),
-             self._print_mixer_cb
+             lambda _action: self.print_mixing_session()
             ),
         ])
         self.action_groups[self.AC_HAVE_MIXTURE].add_actions([
             ("simplify_contributions", None, _("Simplify"), None,
-            _("Simplify all paint contributions (by dividing by their greatest common divisor)."),
-            self._simplify_contributions_cb),
+             _("Simplify all paint contributions (by dividing by their greatest common divisor)."),
+             lambda _action: self.simplify_parts()
+            ),
             ("reset_contributions", None, _("Reset"), None,
-            _("Reset all paint contributions to zero."),
-            self._reset_contributions_cb),
+             _("Reset all paint contributions to zero."),
+             lambda _action: self.reset_parts()
+            ),
         ])
         self.action_groups[self.AC_HAVE_MIXTURE|self.AC_HAVE_TARGET].add_actions([
             ("accept_mixed_colour", None, _("Accept"), None,
-            _("Accept/finalise this colour and add it to the list of  mixed colours."),
-            self._accept_mixed_colour_cb),
+             _("Accept/finalise this colour and add it to the list of  mixed colours."),
+             lambda _action: self._accept_mixed_colour()
+            ),
+        ])
+        self.action_groups[self.AC_HAVE_TARGET].add_actions([
+            ("cancel_mixed_colour", None, _("Cancel"), None,
+             _("Cancel this mixed colour: clearing the target and resetting contributions to zero."),
+             lambda _action: self._reset_mixed_colour()
+            ),
         ])
         self.action_groups[self.AC_DONT_HAVE_TARGET].add_actions([
             ("new_mixed_colour", None, _("New"), None,
              _("Start working on a new mixed colour."),
-             self._new_mixed_colour_cb
+             lambda _action: self._new_mixed_colour_fm_dlg()
             ),
             ("new_mixed_standard_colour", None, _("New (From Standards)"), None,
              _("Start working on a new mixed colour to replicate an existing standard."),
@@ -953,7 +963,7 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
             self.mixpanel.set_bg_colour(None)
             self.hcvw_display.set_colour(None)
             self.action_groups.update_condns(actions.MaskedCondns(0, self.AC_MASK))
-    def _accept_mixed_colour_cb(self,_action):
+    def _accept_mixed_colour(self):
         self.simplify_parts()
         paint_contribs = self.paint_colours.get_contributions()
         if len(paint_contribs) < 1:
@@ -966,11 +976,13 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
         target_colour = vpaint.ModelTargetColour(target_name, self.current_target_colour, self.current_colour_description.get_text())
         self.mixed_colours.append_paint(new_colour, target_colour)
         self.wheels.add_paint(new_colour)
+        self.wheels.add_target_colour(name, target_colour)
+        self._reset_mixed_colour()
+    def _reset_mixed_colour(self):
         self.reset_parts()
         #self.paint_colours.set_sensitive(False)
         self.mixpanel.clear()
         self.current_colour_description.set_text("")
-        self.wheels.add_target_colour(name, target_colour)
         self.current_target_colour = None
         self.hcvw_display.set_colour(None)
         self.hcvw_display.set_target_colour(None)
@@ -993,7 +1005,7 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
             self.standards_manager.set_target_setable(False)
         self.next_name_label.set_text(_("#{:03d}:").format(self.mixed_count + 1))
         #self.paint_colours.set_sensitive(True)
-    def _new_mixed_colour_cb(self,_action):
+    def _new_mixed_colour_fm_dlg(self):
         class Dialogue(NewMixedColourDialogue):
             COLOUR = self.PAINT.COLOUR
         dlg = Dialogue(self.mixed_count + 1, self.get_toplevel())
@@ -1016,12 +1028,8 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
                 self.inform_user(_("{}: unknown paint standard identifier").format(standard_paint_id))
     def reset_parts(self):
         self.paint_colours.reset_parts()
-    def _reset_contributions_cb(self, _action):
-        self.reset_parts()
     def simplify_parts(self):
         self.paint_colours.simplify_parts()
-    def _simplify_contributions_cb(self, _action):
-        self.simplify_parts()
     def add_paint(self, paint_colour):
         self.paint_colours.add_paint(paint_colour)
         self.wheels.add_paint(paint_colour)
@@ -1062,12 +1070,12 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
         if self.ask_ok_cancel(msg):
             for colour in colours:
                 self.del_mixed(colour)
-    def _remove_unused_paints_cb(self, _action):
+    def _remove_unused_paints(self):
         paints = self.paint_colours.get_paints_with_zero_parts()
         for paint in paints:
             if len(self.mixed_colours.get_paint_users(paint)) == 0:
                 self.del_paint(paint)
-    def _print_mixer_cb(self, _action):
+    def print_mixing_session(self):
         """
         Print the mixer as simple text
         """
