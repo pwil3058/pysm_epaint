@@ -163,7 +163,7 @@ class SelectStandardPaintListView(gpaint.PaintListView):
     <ui>
         <popup name="paint_list_popup">
             <menuitem action="set_target_in_mixer"/>
-            <menuitem action="show_standard_paint_details"/>
+            <menuitem action="show_paint_details"/>
         </popup>
     </ui>
     """
@@ -171,15 +171,8 @@ class SelectStandardPaintListView(gpaint.PaintListView):
     def populate_action_groups(self):
         """Populate action groups ready for UI initialization.
         """
-        self.action_groups[actions.AC_SELN_UNIQUE].add_actions(
-            [
-                ("show_standard_paint_details", Gtk.STOCK_INFO, None, None,
-                 _("Show a detailed description of the selected standard paint."),
-                 lambda _action: self.PAINT_INFO_DIALOGUE(self.get_selected_paint()).show()
-                ),
-            ],
-        )
-        self.action_groups[actions.AC_SELN_UNIQUE|self.AC_TARGET_SETTABLE].add_actions(
+        self.get_selection().set_mode(Gtk.SelectionMode.NONE)
+        self.action_groups[self.AC_CLICKED_ON_ROW|self.AC_TARGET_SETTABLE].add_actions(
             [
                 ("set_target_in_mixer", Gtk.STOCK_APPLY, _("Set As Target"), None,
                  _("Set the target colour in the mixer to selected standard paint's colour."),
@@ -231,13 +224,15 @@ class StandardPaintSelector(Gtk.VBox):
         hpaned.set_position(recollect.get(self.RECOLLECT_SECTION, "hpaned_position"))
         hpaned.connect("notify", self._hpaned_notify_cb)
         self.show_all()
+    def unselect_all(self):
+        self.standard_paints_view.get_selection().unselect_all()
     def set_target_setable(self, setable):
         self.standard_paints_view.set_target_setable(setable)
     def _hpaned_notify_cb(self, widget, parameter):
         if parameter.name == "position":
             recollect.set(self.RECOLLECT_SECTION, "hpaned_position", str(widget.get_position()))
     def _set_target_in_mixer_cb(self, _action):
-        self.emit("set_target_colour", self.standard_paints_view.get_selected_paint())
+        self.emit("set_target_colour", self.standard_paints_view.get_clicked_paint())
 GObject.signal_new("set_target_colour", StandardPaintSelector, GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_PYOBJECT,))
 
 class PaintStandardsManager(GObject.GObject, dialogue.ReporterMixin, dialogue.AskerMixin):
@@ -392,6 +387,7 @@ class PaintStandardsManager(GObject.GObject, dialogue.ReporterMixin, dialogue.As
         window.connect("size-allocate", self._selector_size_allocation_cb)
         sdata["presenter"] = window
         window.show()
+        sdata["selector"].unselect_all()
         return True
     def _selector_size_allocation_cb(self, widget, allocation):
         recollect.set(self.STANDARD_PAINT_SELECTOR.RECOLLECT_SECTION, "last_size", "({0.width}, {0.height})".format(allocation))

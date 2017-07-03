@@ -257,7 +257,8 @@ class PaintSelector(Gtk.VBox):
         maker = Gtk.Label(label=_("Manufacturer: {0}".format(paint_series.series_id.maker)))
         sname = Gtk.Label(label=_("Series Name: {0}".format(paint_series.series_id.name)))
         # make connections
-        self.paint_colours_view.action_groups.connect_activate("add_paints_to_mixer", self._add_paints_to_mixer_cb)
+        self.paint_colours_view.action_groups.connect_activate("add_paints_to_mixer", lambda _action: self._add_selected_paints_to_mixer())
+        self.paint_colours_view.action_groups.connect_activate("add_paint_to_mixer", lambda _action: self._add_clicked_paint_to_mixer())
         # lay the components out
         self.pack_start(sname, expand=False, fill=True, padding=0)
         self.pack_start(maker, expand=False, fill=True, padding=0)
@@ -268,6 +269,8 @@ class PaintSelector(Gtk.VBox):
         hpaned.set_position(recollect.get("paint_colour_selector", "hpaned_position"))
         hpaned.connect("notify", self._hpaned_notify_cb)
         self.show_all()
+    def unselect_all(self):
+        self.paint_colours_view.get_selection().unselect_all()
     def set_target_colour(self, target_colour):
         if target_colour is None:
             self.wheels.unset_crosshair()
@@ -278,11 +281,16 @@ class PaintSelector(Gtk.VBox):
     def _hpaned_notify_cb(self, widget, parameter):
         if parameter.name == "position":
             recollect.set("paint_colour_selector", "hpaned_position", str(widget.get_position()))
-    def _add_paints_to_mixer_cb(self, _action):
+    def _add_selected_paints_to_mixer(self):
         """
         Add the currently selected colours to the mixer.
         """
         self.emit("add-paint-colours", self.paint_colours_view.get_selected_paints())
+    def _add_clicked_paint_to_mixer(self):
+        """
+        Add the currently selected colours to the mixer.
+        """
+        self.emit("add-paint-colours", [self.paint_colours_view.get_clicked_paint()])
     def _add_wheel_colour_to_mixer_cb(self, _action, wheel):
         """
         Add the currently selected colours to the mixer.
@@ -432,6 +440,7 @@ class PaintSeriesManager(GObject.GObject, dialogue.ReporterMixin, dialogue.Asker
         window.connect("size-allocate", self._selector_size_allocation_cb)
         sdata["presenter"] = window
         window.show()
+        sdata["selector"].unselect_all()
         return True
     def _selector_size_allocation_cb(self, widget, allocation):
         recollect.set("paint_colour_selector", "last_size", "({0.width}, {0.height})".format(allocation))
@@ -460,6 +469,7 @@ class ModelPaintSelector(PaintSelector):
         <ui>
             <popup name="paint_list_popup">
                 <menuitem action="show_paint_details"/>
+                <menuitem action="add_paint_to_mixer"/>
                 <menuitem action="add_paints_to_mixer"/>
             </popup>
         </ui>
@@ -468,11 +478,16 @@ class ModelPaintSelector(PaintSelector):
             """
             Populate action groups ready for UI initialization.
             """
-            #gpaint.ModelPaintListView.populate_action_groups(self)
             self.action_groups[actions.AC_SELN_MADE].add_actions(
                 [
-                    ("add_paints_to_mixer", Gtk.STOCK_ADD, None, None,
+                    ("add_paints_to_mixer", Gtk.STOCK_ADD, _("Add Selection"), None,
                      _("Add the selected paints to the mixer."),),
+                ]
+            )
+            self.action_groups[actions.AC_SELN_NONE|self.AC_CLICKED_ON_ROW].add_actions(
+                [
+                    ("add_paint_to_mixer", Gtk.STOCK_ADD, None, None,
+                     _("Add the clicked paint to the mixer."),),
                 ]
             )
 

@@ -1022,9 +1022,13 @@ class PaintListView(tlview.View, actions.CAGandUIManager, dialogue.AskerMixin):
         </popup>
     </ui>
     """
+    AC_CLICKED_ON_ROW = actions.ActionCondns.new_flag()
     def __init__(self, *args, **kwargs):
         tlview.View.__init__(self, *args, **kwargs)
+        self._clicked_paint = None
+        self.connect("button-press-event", self._row_clicked_cb)
         actions.CAGandUIManager.__init__(self, selection=self.get_selection(), popup="/paint_list_popup")
+        self.action_groups.update_condns(actions.MaskedCondns(0, self.AC_CLICKED_ON_ROW))
     def populate_action_groups(self):
         """Populate action groups ready for UI initialization.
         """
@@ -1036,13 +1040,22 @@ class PaintListView(tlview.View, actions.CAGandUIManager, dialogue.AskerMixin):
                 ),
             ]
         )
-        self.action_groups[actions.AC_SELN_UNIQUE].add_actions(
+        self.action_groups[self.AC_CLICKED_ON_ROW].add_actions(
             [
                 ("show_paint_details", Gtk.STOCK_INFO, None, None,
-                 _("Show a detailed description of the selected paint."),
+                 _("Show a detailed description of the clicked paint."),
                 self._show_paint_details_cb),
             ],
         )
+    @staticmethod
+    def _row_clicked_cb(widget, event):
+        try:
+            path, column, cell_x, cell_y = widget.get_path_at_pos(event.x, event.y)
+            widget._clicked_paint = widget.get_model()[path][0]
+            widget.action_groups.update_condns(actions.MaskedCondns(widget.AC_CLICKED_ON_ROW, widget.AC_CLICKED_ON_ROW))
+        except TypeError:
+            widget._clicked_paint = None
+            widget.action_groups.update_condns(actions.MaskedCondns(0, widget.AC_CLICKED_ON_ROW))
     def _remove_selection_cb(self, _action):
         """Delete the currently selected paints
         """
@@ -1056,8 +1069,7 @@ class PaintListView(tlview.View, actions.CAGandUIManager, dialogue.AskerMixin):
         if self.ask_ok_cancel(msg):
             self.model.remove_paints(paints)
     def _show_paint_details_cb(self, _action):
-        paint = self.get_selected_paints()[0]
-        self.PAINT_INFO_DIALOGUE(paint).show()
+        self.PAINT_INFO_DIALOGUE(self._clicked_paint).show()
     def get_selected_paints(self):
         """Return the currently selected paints as a list.
         """
@@ -1067,6 +1079,9 @@ class PaintListView(tlview.View, actions.CAGandUIManager, dialogue.AskerMixin):
         selected_paints = self.get_selected_paints()
         assert len(selected_paints) == 1
         return selected_paints[0]
+    def get_clicked_paint(self):
+        return self._clicked_paint
+
 
 def paint_characteristics_tns_list(paint, index=0):
     names = paint.CHARACTERISTICS.NAMES

@@ -477,7 +477,8 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
         self.paint_colours = self.PAINT_LIST_NOTEBOOK(wheel_popup="/colour_wheel_EI_popup")
         self.paint_colours.set_wheels_edit_paint_acb(self._load_wheel_colour_into_editor_cb)
         self.paint_colours.set_size_request(480, 480)
-        self.paint_colours.paint_list.action_groups.connect_activate("edit_selected_paint", self._edit_selected_colour_cb)
+        self.paint_colours.paint_list.action_groups.connect_activate("edit_selected_paint", lambda _action: self._edit_selected_colour())
+        self.paint_colours.paint_list.action_groups.connect_activate("edit_clicked_paint", lambda _action: self._edit_clicked_colour())
         # as these are company names don't split them up for autocompletion
         self.proprietor_name = entries.TextEntryAutoComplete(lexicon.GENERAL_WORDS_LEXICON, multiword=False)
         self.proprietor_name.connect("new-words", lexicon.new_general_words_cb)
@@ -741,12 +742,21 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
                 return response == UnacceptedChangesDialogue.CONTINUE_DISCARDING_CHANGES
         return True
 
-    def _edit_selected_colour_cb(self, _action):
+    def _edit_selected_colour(self):
         """
         Load the selected paint colour into the editor
         """
         if self.paint_edit_state_ok():
             paint = self.paint_colours.paint_list.get_selected_paints()[0]
+            self.paint_editor.set_paint(paint)
+            self._set_current_extant_paint(paint)
+
+    def _edit_clicked_colour(self):
+        """
+        Load the selected paint colour into the editor
+        """
+        if self.paint_edit_state_ok():
+            paint = self.paint_colours.paint_list.get_clicked_paint()
             self.paint_editor.set_paint(paint)
             self._set_current_extant_paint(paint)
 
