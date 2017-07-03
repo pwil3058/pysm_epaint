@@ -1063,6 +1063,10 @@ class PaintListView(tlview.View, actions.CAGandUIManager, dialogue.AskerMixin):
         """
         model, paths = self.get_selection().get_selected_rows()
         return [model[p][0] for p in paths]
+    def get_selected_paint(self):
+        selected_paints = self.get_selected_paints()
+        assert len(selected_paints) == 1
+        return selected_paints[0]
 
 def paint_characteristics_tns_list(paint, index=0):
     names = paint.CHARACTERISTICS.NAMES

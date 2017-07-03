@@ -155,8 +155,9 @@ class StandardPaintColourInformationDialogue(gpaint.PaintColourInformationDialog
     TITLE_FMT_STR = _("Standard Paint Colour: {}")
     RECOLLECT_SECTION = "standard_paint_colour_information"
 
-class SelectStandardPaintListView(tlview.View, actions.CAGandUIManager, dialogue.AskerMixin):
+class SelectStandardPaintListView(gpaint.PaintListView):
     MODEL = gpaint.ModelPaintListStore
+    PAINT_INFO_DIALOGUE = StandardPaintColourInformationDialogue
     SPECIFICATION = generate_paint_list_spec
     UI_DESCR = """
     <ui>
@@ -167,9 +168,6 @@ class SelectStandardPaintListView(tlview.View, actions.CAGandUIManager, dialogue
     </ui>
     """
     AC_TARGET_SETTABLE = actions.ActionCondns.new_flag()
-    def __init__(self, *args, **kwargs):
-        tlview.View.__init__(self, *args, **kwargs)
-        actions.CAGandUIManager.__init__(self, selection=self.get_selection(), popup="/paint_list_popup")
     def populate_action_groups(self):
         """Populate action groups ready for UI initialization.
         """
@@ -177,7 +175,7 @@ class SelectStandardPaintListView(tlview.View, actions.CAGandUIManager, dialogue
             [
                 ("show_standard_paint_details", Gtk.STOCK_INFO, None, None,
                  _("Show a detailed description of the selected standard paint."),
-                 lambda _action: self.show_selected_standard_paint_details()
+                 lambda _action: self.PAINT_INFO_DIALOGUE(self.get_selected_paint()).show()
                 ),
             ],
         )
@@ -193,17 +191,6 @@ class SelectStandardPaintListView(tlview.View, actions.CAGandUIManager, dialogue
             self.action_groups.update_condns(actions.MaskedCondns(self.AC_TARGET_SETTABLE, self.AC_TARGET_SETTABLE))
         else:
             self.action_groups.update_condns(actions.MaskedCondns(0, self.AC_TARGET_SETTABLE))
-    def show_selected_standard_paint_details(self):
-        StandardPaintColourInformationDialogue(self.get_selected_paint()).show()
-    def get_selected_paints(self):
-        """Return the currently selected paints as a list.
-        """
-        model, paths = self.get_selection().get_selected_rows()
-        return [model[p][0] for p in paths]
-    def get_selected_paint(self):
-        selected_paints = self.get_selected_paints()
-        assert len(selected_paints) == 1
-        return selected_paints[0]
 
 class StandardsHueWheelNotebook(gpaint.HueWheelNotebook):
     PAINT_INFO_DIALOGUE = StandardPaintColourInformationDialogue
