@@ -1089,7 +1089,8 @@ def paint_characteristics_tns_list(paint, index=0):
         def __init__(self, name):
             self.name = name
         def get_row_attr(self, row):
-            return getattr(row[index], self.name)
+            paint = row[index]
+            return (getattr(paint, self.name), paint.name)
     return [TNS(pchar.cell_column_header(name), name, {}, Dummy(name).get_row_attr) for name in names]
 
 def paint_extras_tns_list(paint, index=0):

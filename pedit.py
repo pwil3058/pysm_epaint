@@ -158,6 +158,7 @@ class ColourSampleMatcher(Gtk.VBox):
         self._delta = 256 # must be a power of two
         self.auto_match_on_paste_check_button = Gtk.CheckButton.new_with_label(_("On Paste"))
         self.auto_match_on_paste_check_button.set_active(auto_match_on_paste)
+        self.auto_match_on_paste_check_button.set_tooltip_text(_("Whether auto matching should be triggered automatically when samples are pasted into matcher."))
         # Add RGB entry field
         if self.PROVIDE_RGB_ENTRY:
             self.rgb_entry = gpaint.RGBEntryBox()
@@ -400,12 +401,14 @@ class PaintEditor(Gtk.VBox):
             kwargs[extra.name] = self.extra_entries[extra.name].get_text()
         return self.PAINT(name=name, rgb=rgb, **kwargs)
 
-    def set_paint(self, paint):
+    def set_paint(self, paint, erase_samples_from_matcher=True):
         self.colour_matcher.set_colour(paint.rgb)
         self.colour_name.set_text(paint.name)
         for extra in self.PAINT.EXTRAS:
             self.extra_entries[extra.name].set_text(getattr(paint, extra.name))
         self.c_choosers.set_selections(**paint.characteristics.get_kwargs())
+        if erase_samples_from_matcher:
+            self.colour_matcher.sample_display.erase_samples()
 
     def auto_match_sample(self, raw=True):
         self.colour_matcher.auto_match_sample(raw)
