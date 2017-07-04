@@ -156,7 +156,8 @@ class ColourSampleMatcher(Gtk.VBox):
     def __init__(self, auto_match_on_paste=False):
         Gtk.VBox.__init__(self)
         self._delta = 256 # must be a power of two
-        self.auto_match_on_paste = auto_match_on_paste
+        self.auto_match_on_paste_check_button = Gtk.CheckButton.new_with_label(_("On Paste"))
+        self.auto_match_on_paste_check_button.set_active(auto_match_on_paste)
         # Add RGB entry field
         if self.PROVIDE_RGB_ENTRY:
             self.rgb_entry = gpaint.RGBEntryBox()
@@ -208,6 +209,10 @@ class ColourSampleMatcher(Gtk.VBox):
         self.set_colour(default_colour)
         #
         self.show_all()
+
+    @property
+    def auto_match_on_paste(self):
+        return self.auto_match_on_paste_check_button.get_active()
 
     def set_colour(self, colour):
         from ..gtx import rgb_math
@@ -474,6 +479,7 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
         self.paint_editor.connect("changed", self._paint_editor_change_cb)
         self.paint_editor.colour_matcher.sample_display.connect("samples-changed", self._sample_change_cb)
         self.buttons = self.create_action_button_box(self.BUTTONS)
+        self.buttons.pack_end(self.paint_editor.colour_matcher.auto_match_on_paste_check_button, expand=False, fill=False, padding=0)
         self.paint_colours = self.PAINT_LIST_NOTEBOOK(wheel_popup="/colour_wheel_EI_popup")
         self.paint_colours.set_wheels_edit_paint_acb(self._load_wheel_colour_into_editor_cb)
         self.paint_colours.set_size_request(480, 480)
@@ -781,10 +787,13 @@ class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.Report
                 else:
                     return
         # and do a full replace to make sure the view gets updated
+        nsel = self.paint_colours.paint_list.get_selection().count_selected_rows()
         self.paint_colours.remove_paint(self._current_extant_paint)
         self.paint_colours.add_paint(edited_colour)
         self._set_current_extant_paint(edited_colour)
         self.paint_colours.queue_draw()
+        if nsel == 0:
+            self.paint_colours.paint_list.get_selection().unselect_all()
         self.set_status_indicator(clean=False)
 
     def _reset_colour_editor_cb(self, _widget):
