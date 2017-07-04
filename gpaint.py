@@ -1085,7 +1085,12 @@ class PaintListView(tlview.View, actions.CAGandUIManager, dialogue.AskerMixin):
 
 def paint_characteristics_tns_list(paint, index=0):
     names = paint.CHARACTERISTICS.NAMES
-    return [TNS(pchar.cell_column_header(name), name, {}, lambda row: getattr(row[index], name)) for name in names]
+    class Dummy:
+        def __init__(self, name):
+            self.name = name
+        def get_row_attr(self, row):
+            return getattr(row[index], self.name)
+    return [TNS(pchar.cell_column_header(name), name, {}, Dummy(name).get_row_attr) for name in names]
 
 def paint_extras_tns_list(paint, index=0):
     return [TNS(extra.prompt_text[:-1], extra.name, {"resizable" : True, "expand" : True}, lambda row: getattr(row[index], extra.name)) for extra in paint.EXTRAS]
