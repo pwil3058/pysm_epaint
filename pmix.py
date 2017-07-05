@@ -605,7 +605,7 @@ class ReferenceImageViewer(Gtk.Window, actions.CAGandUIManager):
         vbox.pack_start(self.ref_image, expand=True, fill=True, padding=0)
         vbox.pack_start(self.buttons, expand=False, fill=True, padding=0)
         self.add(vbox)
-        self.set_transient_for(parent if parent else dialogue.main_window)
+        self.set_transient_for(parent)
         self.connect("size-allocate", self._size_allocation_cb)
         self.show_all()
         if pixbuf is not None:
