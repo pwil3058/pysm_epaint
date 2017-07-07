@@ -1025,7 +1025,7 @@ class PaintListView(tlview.View, actions.CAGandUIManager, dialogue.AskerMixin):
     AC_CLICKED_ON_ROW = actions.ActionCondns.new_flag()
     def __init__(self, *args, **kwargs):
         tlview.View.__init__(self, *args, **kwargs)
-        self._clicked_paint = None
+        self._clicked_row = None
         self.connect("button-press-event", self._row_clicked_cb)
         actions.CAGandUIManager.__init__(self, selection=self.get_selection(), popup="/paint_list_popup")
         self.action_groups.update_condns(actions.MaskedCondns(0, self.AC_CLICKED_ON_ROW))
@@ -1051,10 +1051,10 @@ class PaintListView(tlview.View, actions.CAGandUIManager, dialogue.AskerMixin):
     def _row_clicked_cb(widget, event):
         try:
             path, column, cell_x, cell_y = widget.get_path_at_pos(event.x, event.y)
-            widget._clicked_paint = widget.get_model()[path][0]
+            widget._clicked_row = widget.get_model()[path]
             widget.action_groups.update_condns(actions.MaskedCondns(widget.AC_CLICKED_ON_ROW, widget.AC_CLICKED_ON_ROW))
         except TypeError:
-            widget._clicked_paint = None
+            widget._clicked_row = None
             widget.action_groups.update_condns(actions.MaskedCondns(0, widget.AC_CLICKED_ON_ROW))
     def _remove_selection_cb(self, _action):
         """Delete the currently selected paints
@@ -1069,7 +1069,7 @@ class PaintListView(tlview.View, actions.CAGandUIManager, dialogue.AskerMixin):
         if self.ask_ok_cancel(msg):
             self.model.remove_paints(paints)
     def _show_paint_details_cb(self, _action):
-        self.PAINT_INFO_DIALOGUE(self._clicked_paint).show()
+        self.PAINT_INFO_DIALOGUE(self.get_clicked_paint()).show()
     def get_selected_paints(self):
         """Return the currently selected paints as a list.
         """
@@ -1080,7 +1080,7 @@ class PaintListView(tlview.View, actions.CAGandUIManager, dialogue.AskerMixin):
         assert len(selected_paints) == 1
         return selected_paints[0]
     def get_clicked_paint(self):
-        return self._clicked_paint
+        return self._clicked_row[0]
 
 
 def paint_characteristics_tns_list(paint, index=0):

@@ -535,9 +535,12 @@ class MatchedPaintListView(gpaint.PaintListView):
         """Return the currently selected paints as a list.
         """
         model, paths = self.get_selection().get_selected_rows()
-        return [(model[p][0], model[p][0]) for p in paths]
+        return [(model[p][0], model[p][1]) for p in paths]
+    def get_clicked_paint_and_target(self):
+        if self._clicked_row:
+            return (self._clicked_row[0], self._clicked_row[1])
     def _show_paint_details_cb(self, _action):
-        paint, target_colour = self.get_selected_paints_and_targets()[0]
+        paint, target_colour = self.get_clicked_paint_and_target()
         self.MIXED_PAINT_INFORMATION_DIALOGUE(paint, target_colour).show()
 
 class MixedModelPaintInformationDialogue(MixedPaintInformationDialogue):
