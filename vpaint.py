@@ -46,7 +46,10 @@ class HCV:
         else:
             self.__warmth = fractions.Fraction(self.RGB.ROUND(xy.x), self.RGB.ONE)
     def __getattr__(self, attr_name):
-        return getattr(self.__rgb, attr_name)
+        try:
+            return getattr(self.__rgb, attr_name)
+        except AttributeError:
+            return getattr(self.__hue, attr_name)
     def __getitem__(self, index):
         return self.rgb[index]
     @property
