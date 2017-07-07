@@ -468,9 +468,9 @@ class ModelPaintSelector(PaintSelector):
         UI_DESCR = """
         <ui>
             <popup name="paint_list_popup">
-                <menuitem action="show_paint_details"/>
                 <menuitem action="add_paint_to_mixer"/>
                 <menuitem action="add_paints_to_mixer"/>
+                <menuitem action="show_paint_details"/>
             </popup>
         </ui>
         """
