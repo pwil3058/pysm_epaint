@@ -382,11 +382,6 @@ class ValueDisplay(GenericAttrDisplay):
         self.end_colour = rgbh.RGBPN.WHITE
         GenericAttrDisplay.__init__(self, colour=colour, target_colour=target_colour, size=size)
     def expose_cb(self, widget, cairo_ctxt):
-        #if self.colour is None and self.target_colour is None:
-            #cairo_ctxt.set_source_rgb(0, 0, 0)
-            #cairo_ctxt.paint()
-            #self.draw_label(cairo_ctxt)
-            #return
         width = widget.get_allocated_width()
         height = widget.get_allocated_height()
         linear_gradient = cairo.LinearGradient(0, 0, width, height)
@@ -475,45 +470,32 @@ class WarmthDisplay(ValueDisplay):
             self.target_fg_colour = colour.warmth_rgb.best_foreground()
             self.target_val = (1 + colour.warmth) / 2
 
-class HCVDisplay(Gtk.VBox):
+class ColourPropertiesDisplay(Gtk.VBox):
     DEFAULT_COLOUR = vpaint.WHITE
+    PROPERTY_DISPLAYS = list()
     def __init__(self, colour=None, target_colour=None, size=(256, 120), stype = Gtk.ShadowType.ETCHED_IN):
         Gtk.VBox.__init__(self)
         #
-        w, h = size
         if colour is None:
             colour = self.DEFAULT_COLOUR
-        self.hue = HueDisplay(colour=colour, target_colour=target_colour, size=(w, h / 4))
-        self.pack_start(gutils.wrap_in_frame(self.hue, stype), expand=False, fill=True, padding=0)
-        self.value = ValueDisplay(colour=colour, target_colour=target_colour, size=(w, h / 4))
-        self.pack_start(gutils.wrap_in_frame(self.value, stype), expand=False, fill=True, padding=0)
-        self.chroma = ChromaDisplay(colour=colour, target_colour=target_colour, size=(w, h / 4))
-        self.pack_start(gutils.wrap_in_frame(self.chroma, stype), expand=False, fill=True, padding=0)
+        w = size[0]
+        h = size[1] / len(self.PROPERTY_DISPLAYS)
+        self.__property_displays = [pd(colour=colour, target_colour=target_colour, size=(w, h)) for pd in self.PROPERTY_DISPLAYS]
+        for pd in self.__property_displays:
+            self.pack_start(gutils.wrap_in_frame(pd, stype), expand=False, fill=True, padding=0)
         self.show()
     def set_colour(self, new_colour):
-        #if new_colour is None:
-            #new_colour = self.DEFAULT_COLOUR
-        self.chroma.set_colour(new_colour)
-        self.hue.set_colour(new_colour)
-        self.value.set_colour(new_colour)
-    def set_target_colour(self, new_target_colour):
-        self.chroma.set_target_colour(new_target_colour)
-        self.hue.set_target_colour(new_target_colour)
-        self.value.set_target_colour(new_target_colour)
+        for pd in self.__property_displays:
+            pd.set_colour(new_colour)
+    def set_target_colour(self, new_colour):
+        for pd in self.__property_displays:
+            pd.set_target_colour(new_colour)
 
-class HCVWDisplay(HCVDisplay):
-    def __init__(self, colour=vpaint.WHITE, target_colour=None, size=(256, 120), stype = Gtk.ShadowType.ETCHED_IN):
-        HCVDisplay.__init__(self, colour=colour, target_colour=target_colour, size=size, stype=stype)
-        w, h = size
-        self.warmth = WarmthDisplay(colour=colour, size=(w, h / 4))
-        self.pack_start(gutils.wrap_in_frame(self.warmth, stype), expand=False, fill=True, padding=0)
-        self.show()
-    def set_colour(self, new_colour):
-        HCVDisplay.set_colour(self, new_colour)
-        self.warmth.set_colour(new_colour)
-    def set_target_colour(self, new_target_colour):
-        HCVDisplay.set_target_colour(self, new_target_colour)
-        self.warmth.set_target_colour(new_target_colour)
+class HCVDisplay(ColourPropertiesDisplay):
+    PROPERTY_DISPLAYS = [HueDisplay,ChromaDisplay, ValueDisplay]
+
+class HCVWDisplay(ColourPropertiesDisplay):
+    PROPERTY_DISPLAYS = [HueDisplay,ChromaDisplay, ValueDisplay, WarmthDisplay]
 
 class PaintColourInformationDialogue(dialogue.Dialog):
     """A dialog to display the detailed information for a paint colour
