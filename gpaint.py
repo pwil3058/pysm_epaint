@@ -374,18 +374,21 @@ class HueDisplay(GenericAttrDisplay):
                 else:
                     self.indicator_val = 0.5 - offset
 
-class ValueDisplay(GenericAttrDisplay):
-    LABEL = _("Value")
+class MonochromeValueDisplay(GenericAttrDisplay):
+    LABEL = _("MonochromeValue")
 
     def __init__(self, colour=None, target_colour=None, size=(100, 15)):
         self.start_colour = rgbh.RGBPN.BLACK
         self.end_colour = rgbh.RGBPN.WHITE
+        self.mid_colour = None
         GenericAttrDisplay.__init__(self, colour=colour, target_colour=target_colour, size=size)
     def expose_cb(self, widget, cairo_ctxt):
         width = widget.get_allocated_width()
         height = widget.get_allocated_height()
         linear_gradient = cairo.LinearGradient(0, 0, width, height)
         linear_gradient.add_color_stop_rgb(0.0, *self.start_colour.cairo_rgb)
+        if self.mid_colour:
+            linear_gradient.add_color_stop_rgb(self.mid_colour.value, *self.mid_colour.cairo_rgb)
         linear_gradient.add_color_stop_rgb(1.0, *self.end_colour.cairo_rgb)
         cairo_ctxt.rectangle(0, 0, width, height)
         cairo_ctxt.set_source(linear_gradient)
@@ -411,38 +414,40 @@ class ValueDisplay(GenericAttrDisplay):
             self.target_fg_colour = colour.best_foreground()
             self.target_val = colour.value
 
+class ValueDisplay(MonochromeValueDisplay):
+    LABEL = _("Value")
+
+    def _set_colour(self, colour):
+        MonochromeValueDisplay._set_colour(self, colour)
+        self.mid_colour = self.target_colour if self.target_colour else colour
+    def _set_target_colour(self, colour):
+        MonochromeValueDisplay._set_target_colour(self, colour)
+        self.mid_colour = colour if colour else self.colour
+
 class ChromaDisplay(ValueDisplay):
     LABEL = _("Chroma")
 
+    def _set_background_fm_colour(self, colour):
+        if colour is None:
+            self.start_colour = self.end_colour = vpaint.WHITE
+            self.fg_colour = self.target_fg_colour = vpaint.BLACK
+        elif colour.chroma:
+            self.start_colour = colour.zero_chroma_rgb()
+            self.end_colour = colour.hue_rgb
+            self.fg_colour = self.target_fg_colour = colour.best_foreground()
+        else:
+            self.start_colour = self.end_colour = colour
+            self.fg_colour = self.target_fg_colour = colour.best_foreground()
     def _set_colour(self, colour):
         """Set values that only change when the colour changes
         """
-        if colour is None:
-            self.indicator_val = None
-            if self.target_colour is None:
-                self.start_colour = self.end_colour = vpaint.WHITE
-                self.fg_colour = self.target_fg_colour = vpaint.BLACK
-        else:
-            if self.target_colour is None:
-                self.start_colour = self.colour.chroma_side()
-                self.end_colour = colour.hue_rgb
-            self.fg_colour = self.start_colour.best_foreground()
-            self.indicator_val = colour.chroma
+        self.indicator_val = colour.chroma if colour else None
+        self._set_background_fm_colour(self.target_colour if self.target_colour else colour)
     def _set_target_colour(self, colour):
         """Set values that only change when the target colour changes
         """
-        if colour is None:
-            self.target_val = None
-            if self.colour is None:
-                self.start_colour = self.end_colour = vpaint.WHITE
-                self.fg_colour = self.target_fg_colour = vpaint.BLACK
-            else:
-                self._set_colour(self.colour)
-        else:
-            self.start_colour = colour.zero_chroma_rgb()
-            self.end_colour = colour.hue_rgb
-            self.target_fg_colour = self.start_colour.best_foreground()
-            self.target_val = colour.chroma
+        self.target_val = colour.chroma if colour else None
+        self._set_background_fm_colour(colour if colour else self.colour)
 
 
 class WarmthDisplay(ValueDisplay):
