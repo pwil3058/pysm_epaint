@@ -705,21 +705,9 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
     MIXED_PAINT = None
     UI_DESCR = """
     <ui>
-        <menubar name="mixer_menubar">
-            <menu action="mixer_file_menu">
-                <menuitem action="print_mixer"/>
-                <menuitem action="quit_mixer"/>
-            </menu>
-            <menu action="mixer_series_manager_menu">
-                <menuitem action="mixer_load_paint_series"/>
-            </menu>
-            <menu action="mixer_standards_manager_menu">
-                <menuitem action="mixer_load_paint_standard"/>
-            </menu>
-            <menu action="reference_resource_menu">
-                <menuitem action="open_reference_image_viewer"/>
-            </menu>
-        </menubar>
+        <toolbar name="mixer_toolbar">
+            <toolitem action="print_mixer"/>
+        </toolbar>
     </ui>
     """
     AC_HAVE_MIXTURE, AC_MASK = actions.ActionCondns.new_flags_and_mask(1)
@@ -766,9 +754,11 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
             "cancel_mixed_colour",
             "remove_unused_paints"
         ])
-        menubar = self.ui_manager.get_widget("/mixer_menubar")
+        toolbar = self.ui_manager.get_widget("/mixer_toolbar")
         # Lay out components
-        self.pack_start(menubar, expand=False, fill=True, padding=0)
+        self.pack_start(Gtk.HSeparator(), expand=False, fill=True, padding=0)
+        self.pack_start(toolbar, expand=False, fill=True, padding=0)
+        self.pack_start(Gtk.HSeparator(), expand=False, fill=True, padding=0)
         hbox = Gtk.HBox()
         hbox.pack_start(Gtk.Label(_("Notes:")), expand=False, fill=True, padding=0)
         hbox.pack_start(self.notes, expand=True, fill=True, padding=0)
