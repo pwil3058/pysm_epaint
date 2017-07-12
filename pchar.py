@@ -182,7 +182,7 @@ CHARACTERISTIC_CHOOSERS = {
     "metallic" : MetallicChoice
 }
 
-def cell_column_header(characteristic, length=1):
+def cell_column_header(characteristic, length=2):
     return "{}.".format(CHARACTERISTIC_CHOOSERS[characteristic].PROMPT_TEXT[0:length])
 
 class Characteristics:
