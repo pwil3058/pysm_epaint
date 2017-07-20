@@ -416,17 +416,14 @@ class MixedPaintComponentsListView(gpaint.PaintListView):
     SPECIFICATION = generate_components_list_spec
 
 
-class MixedPaintInformationDialogue(dialogue.Dialog):
+class MixedPaintInformationDialogue(dialogue.SimpleDialog):
     """
     A dialog to display the detailed information for a mixed colour
     """
     COMPONENT_LIST_VIEW = None
-    recollect.define("mixed_colour_information", "last_size", recollect.Defn(eval, ""))
+    RECOLLECT_SECTION = "mixed_colour_information"
     def __init__(self, colour, target_colour=None, parent=None):
-        dialogue.Dialog.__init__(self, title=_("Mixed Colour: {}").format(colour.name), parent=parent)
-        last_size = recollect.get("mixed_colour_information", "last_size")
-        if last_size:
-            self.set_default_size(*last_size)
+        dialogue.SimpleDialog.__init__(self, title=_("Mixed Colour: {}").format(colour.name), parent=parent)
         vbox = self.get_content_area()
         vbox.pack_start(coloured.ColouredLabel(colour.name, colour.gdk_color), expand=False, fill=True, padding=0)
         vbox.pack_start(coloured.ColouredLabel(colour.notes, colour.gdk_color), expand=False, fill=True, padding=0)
@@ -443,10 +440,7 @@ class MixedPaintInformationDialogue(dialogue.Dialog):
         for component in colour.blobs:
             self.cview.model.append(component)
         vbox.pack_start(self.cview, expand=False, fill=True, padding=0)
-        self.connect("configure-event", self._configure_event_cb)
         vbox.show_all()
-    def _configure_event_cb(self, widget, allocation):
-        recollect.set("mixed_colour_information", "last_size", "({0.width}, {0.height})".format(allocation))
     def unselect_all(self):
         self.cview.get_selection().unselect_all()
 

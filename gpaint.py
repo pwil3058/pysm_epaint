@@ -377,11 +377,11 @@ class HueDisplay(GenericAttrDisplay):
 class MonochromeValueDisplay(GenericAttrDisplay):
     LABEL = _("MonochromeValue")
 
-    def __init__(self, colour=None, target_colour=None, size=(100, 15)):
+    def __init__(self, **kwargs):
         self.start_colour = rgbh.RGBPN.BLACK
         self.end_colour = rgbh.RGBPN.WHITE
         self.mid_colour = None
-        GenericAttrDisplay.__init__(self, colour=colour, target_colour=target_colour, size=size)
+        GenericAttrDisplay.__init__(self, **kwargs)
     def expose_cb(self, widget, cairo_ctxt):
         width = widget.get_allocated_width()
         height = widget.get_allocated_height()
@@ -452,8 +452,8 @@ class ChromaDisplay(ValueDisplay):
 
 class WarmthDisplay(ValueDisplay):
     LABEL = _("Warmth")
-    def __init__(self, colour=None, size=(100, 15)):
-        GenericAttrDisplay.__init__(self, colour=colour, size=size)
+    def __init__(self, **kwargs):
+        ValueDisplay.__init__(self, **kwargs)
         self.start_colour = vpaint.CYAN
         self.end_colour = vpaint.RED
     def _set_colour(self, colour):
@@ -497,25 +497,18 @@ class ColourPropertiesDisplay(Gtk.VBox):
             pd.set_target_colour(new_colour)
 
 class HCVDisplay(ColourPropertiesDisplay):
-    PROPERTY_DISPLAYS = [HueDisplay,ChromaDisplay, ValueDisplay]
+    PROPERTY_DISPLAYS = [HueDisplay, ChromaDisplay, ValueDisplay]
 
 class HCVWDisplay(ColourPropertiesDisplay):
-    PROPERTY_DISPLAYS = [HueDisplay,ChromaDisplay, ValueDisplay, WarmthDisplay]
+    PROPERTY_DISPLAYS = [HueDisplay, ChromaDisplay, ValueDisplay, WarmthDisplay]
 
-class PaintColourInformationDialogue(dialogue.Dialog):
+class PaintColourInformationDialogue(dialogue.SimpleDialog):
     """A dialog to display the detailed information for a paint colour
     """
     TITLE_FMT_STR = _("Paint Colour: {}")
     RECOLLECT_SECTION = "paint_colour_information"
     def __init__(self, colour, parent=None):
-        dialogue.Dialog.__init__(self, title=self.TITLE_FMT_STR.format(colour.name), parent=parent)
-        try:
-            recollect.define(self.RECOLLECT_SECTION, "last_size", recollect.Defn(str, ""))
-        except recollect.DuplicateDefn:
-            pass
-        last_size = recollect.get(self.RECOLLECT_SECTION, "last_size")
-        if last_size:
-            self.set_default_size(*eval(last_size))
+        dialogue.SimpleDialog.__init__(self, title=self.TITLE_FMT_STR.format(colour.name), parent=parent)
         vbox = self.get_content_area()
         vbox.pack_start(coloured.ColouredLabel(colour.name, colour.rgb.gdk_color), expand=False, fill=True, padding=0)
         for extra in colour.EXTRAS:
@@ -530,10 +523,7 @@ class PaintColourInformationDialogue(dialogue.Dialog):
         if hasattr(colour, "characteristics"):
             for characteristic in colour.characteristics:
                 vbox.pack_start(Gtk.Label(characteristic.description()), expand=False, fill=True, padding=0)
-        self.connect("configure-event", self._configure_event_cb)
         vbox.show_all()
-    def _configure_event_cb(self, widget, allocation):
-        recollect.set(self.RECOLLECT_SECTION, "last_size", "({0.width}, {0.height})".format(allocation))
 
 class HueWheelNotebook(Gtk.Notebook):
     PAINT_INFO_DIALOGUE = PaintColourInformationDialogue
