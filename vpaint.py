@@ -56,6 +56,9 @@ class HCV:
     def chroma(self):
         return self.__chroma
     @property
+    def greyness(self):
+        return 1.0 - self.__chroma
+    @property
     def hue(self):
         return self.__hue
     @property

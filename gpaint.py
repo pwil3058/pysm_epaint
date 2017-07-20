@@ -545,35 +545,48 @@ class HueWheelNotebook(Gtk.Notebook):
         class MyHueValueWheel(HueValueWheel):
             PAINT_INFO_DIALOGUE = self.PAINT_INFO_DIALOGUE
         self.hue_value_wheel = MyHueValueWheel(popup=popup)
+        class MyHueGreynessWheel(HueGreynessWheel):
+            PAINT_INFO_DIALOGUE = self.PAINT_INFO_DIALOGUE
+        self.hue_greyness_wheel = MyHueGreynessWheel(popup=popup)
         self.append_page(self.hue_value_wheel, Gtk.Label(label=_("Hue/Value Wheel")))
         self.append_page(self.hue_chroma_wheel, Gtk.Label(label=_("Hue/Chroma Wheel")))
+        self.append_page(self.hue_greyness_wheel, Gtk.Label(label=_("Hue/Greyness Wheel")))
     def set_wheels_colour_info_acb(self, callback):
         self.hue_chroma_wheel.set_colour_info_acb(callback)
         self.hue_value_wheel.set_colour_info_acb(callback)
+        self.hue_greyness_wheel.set_colour_info_acb(callback)
     def set_wheels_add_paint_acb(self, callback):
         self.hue_chroma_wheel.set_add_paint_acb(callback)
         self.hue_value_wheel.set_add_paint_acb(callback)
+        self.hue_greyness_wheel.set_add_paint_acb(callback)
     def set_wheels_edit_paint_acb(self, callback):
         self.hue_chroma_wheel.set_edit_paint_acb(callback)
         self.hue_value_wheel.set_edit_paint_acb(callback)
+        self.hue_greyness_wheel.set_edit_paint_acb(callback)
     def add_paint(self, new_colour):
         self.hue_chroma_wheel.add_paint(new_colour)
         self.hue_value_wheel.add_paint(new_colour)
+        self.hue_greyness_wheel.add_paint(new_colour)
     def del_paint(self, colour):
         self.hue_chroma_wheel.del_paint(colour)
         self.hue_value_wheel.del_paint(colour)
+        self.hue_greyness_wheel.del_paint(colour)
     def add_target_colour(self, name, target_colour):
         self.hue_chroma_wheel.add_target_colour(name, target_colour)
         self.hue_value_wheel.add_target_colour(name, target_colour)
+        self.hue_greyness_wheel.add_target_colour(name, target_colour)
     def del_target_colour(self, name):
         self.hue_chroma_wheel.del_target_colour(name)
         self.hue_value_wheel.del_target_colour(name)
+        self.hue_greyness_wheel.del_target_colour(name)
     def set_crosshair(self, target_colour):
         self.hue_chroma_wheel.set_crosshair(target_colour)
         self.hue_value_wheel.set_crosshair(target_colour)
+        self.hue_greyness_wheel.set_crosshair(target_colour)
     def unset_crosshair(self):
         self.hue_chroma_wheel.unset_crosshair()
         self.hue_value_wheel.unset_crosshair()
+        self.hue_greyness_wheel.unset_crosshair()
 
 class ColourWheel(Gtk.DrawingArea, actions.CAGandUIManager):
     PAINT_INFO_DIALOGUE = PaintColourInformationDialogue
@@ -897,6 +910,20 @@ class HueValueWheel(ColourWheel):
     class ColourCrossHair(ColourWheel.ColourCrossHair):
         def choose_radius_attribute(self):
             self.radius = self.parent.one * self.colour.value
+
+class HueGreynessWheel(ColourWheel):
+    class ColourSquare(ColourWheel.ColourSquare):
+        def choose_radius_attribute(self):
+            self.radius = self.parent.one * self.colour.greyness
+    class ColourCircle(ColourWheel.ColourCircle):
+        def choose_radius_attribute(self):
+            self.radius = self.parent.one * self.colour.greyness
+    class ColourDiamond(ColourWheel.ColourDiamond):
+        def choose_radius_attribute(self):
+            self.radius = self.parent.one * self.colour.greyness
+    class ColourCrossHair(ColourWheel.ColourCrossHair):
+        def choose_radius_attribute(self):
+            self.radius = self.parent.one * self.colour.greyness
 
 class PaintListStore(Gtk.ListStore):
     COLUMN_DEFS = list()
