@@ -95,12 +95,6 @@ class MixedPaint:
     def __str__(self):
         return ("Name: \"{0}\" Notes: \"{1}\"").format(self.name, self.notes) + Colour.__str__(self) + self._components_str()
 
-class ModelMixture(Mixture):
-    PAINT = vpaint.ModelPaint
-
-class MixedModelPaint(MixedPaint):
-    MIXTURE = ModelMixture
-
 class NewMixedColourDialogue(dialogue.Dialog):
     COLOUR = None
     def __init__(self, number, parent=None):
@@ -444,12 +438,6 @@ class MixedPaintInformationDialogue(dialogue.SimpleDialog):
     def unselect_all(self):
         self.cview.get_selection().unselect_all()
 
-class MatchedModelPaintListStore(MatchedPaintListStore):
-    COLUMN_DEFS = [
-            gpaint.TNS(_("Value"), "value", {}, lambda row: row[0].value),
-            gpaint.TNS(_("Hue"), "hue", {}, lambda row: row[0].hue),
-        ] + gpaint.paint_characteristics_tns_list(vpaint.ModelPaint)
-
 def notes_cell_data_func(column, cell, model, model_iter, *args):
     colour = model[model_iter][0]
     cell.set_property("text", colour.notes)
@@ -536,23 +524,6 @@ class MatchedPaintListView(gpaint.PaintListView):
     def _show_paint_details_cb(self, _action):
         paint, target_colour = self.get_clicked_paint_and_target()
         self.MIXED_PAINT_INFORMATION_DIALOGUE(paint, target_colour).show()
-
-class MixedModelPaintInformationDialogue(MixedPaintInformationDialogue):
-    class COMPONENT_LIST_VIEW(MixedPaintComponentsListView):
-        class MODEL(MixedPaintComponentsListStore):
-            COLUMN_DEFS = gpaint.ModelPaintListStore.COLUMN_DEFS[1:]
-
-class MatchedModelPaintListView(MatchedPaintListView):
-    UI_DESCR = """
-    <ui>
-        <popup name="paint_list_popup">
-            <menuitem action="show_paint_details"/>
-            <menuitem action="remove_selected_paints"/>
-        </popup>
-    </ui>
-    """
-    MODEL = MatchedModelPaintListStore
-    MIXED_PAINT_INFORMATION_DIALOGUE = MixedModelPaintInformationDialogue
 
 recollect.define('reference_image_viewer', 'last_file', recollect.Defn(str, ''))
 recollect.define('reference_image_viewer', 'last_size', recollect.Defn(str, ''))
@@ -697,6 +668,7 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
     MIXED_PAINT_INFORMATION_DIALOGUE = None
     MIXTURE = None
     MIXED_PAINT = None
+    TARGET_COLOUR = None
     UI_DESCR = """
     <ui>
         <toolbar name="mixer_toolbar">
@@ -960,7 +932,7 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
         notes = self.current_colour_description.get_text()
         new_colour =  self.MIXED_PAINT(blobs=paint_contribs, name=name, notes=notes)
         target_name = _("Target #{:03d}").format(self.mixed_count)
-        target_colour = vpaint.ModelTargetColour(target_name, self.current_target_colour, self.current_colour_description.get_text())
+        target_colour = self.TARGET_COLOUR(target_name, self.current_target_colour, self.current_colour_description.get_text())
         self.mixed_colours.append_paint(new_colour, target_colour)
         self.wheels.add_paint(new_colour)
         self.wheels.add_target_colour(name, target_colour)

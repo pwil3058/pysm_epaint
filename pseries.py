@@ -37,7 +37,7 @@ from ..gtx import recollect
 from . import gpaint
 from . import pedit
 
-from .vpaint import ModelPaint, ArtPaint
+from .vpaint import ArtPaint
 
 from .. import SYS_DATA_DIR_PATH
 from .. import CONFIG_DIR_PATH
@@ -79,7 +79,6 @@ class SeriesPaint(collections.namedtuple("SeriesPaint", ["series", "paint"])):
     def __repr__(self):
         return "SeriesPaint(series={}, paint={})".format(self.series.series_id, repr(self.paint))
 
-MODEL_NC_MATCHER = re.compile(r'^NamedColour\(name=(".+"), rgb=(.+), transparency="(.+)", finish="(.+)"\)$')
 ART_NC_MATCHER = re.compile(r'^NamedColour\(name=(".+"), rgb=(.+), transparency="(.+)", permanence="(.+)"\)$')
 
 class PaintSeries:
@@ -133,24 +132,12 @@ class PaintSeries:
         if not match:
             raise cls.ParseError(_("Series name not found."))
         series_name = match.group(1)
-        series = cls(maker=mfkr_name, name=series_name)
+        return cls(maker=mfkr_name, name=series_name, paints=cls.paints_fm_definition(lines[2:]))
+    @staticmethod
+    def paints_fm_definition(lines):
         if len(lines) > 2:
-            old_model_matcher = re.compile("(^[^:]+):\s+(RGB\([^)]+\)), (Transparency\([^)]+\)), (Finish\([^)]+\))$")
             old_art_matcher = re.compile('(^[^:]+):\s+(RGB\([^)]+\)), (Transparency\([^)]+\)), (Permanence\([^)]+\))$')
-            if old_model_matcher.match(lines[2]):
-                # Old format
-                # TODO: remove support for old paint series format
-                RGB = collections.namedtuple("RGB", ["red", "green", "blue"])
-                colours = []
-                for line in lines[2:]:
-                    match = old_model_matcher.match(line)
-                    if not match:
-                        raise cls.ParseError(_("Badly formed definition: {0}.").format(line))
-                    # Old data files were wx and hence 8 bits per channel
-                    # so we need to convert them to 16 bist per channel
-                    rgb = [channel << 8 for channel in eval(match.group(2))]
-                    series.add_paint(ModelPaint(match.group(1), rgb, eval(match.group(3)), eval(match.group(4))))
-            elif old_art_matcher.match(lines[2]):
+            if old_art_matcher.match(lines[2]):
                 # Old format
                 # TODO: remove support for old paint series format
                 RGB = collections.namedtuple("RGB", ["red", "green", "blue"])
@@ -163,19 +150,6 @@ class PaintSeries:
                     # so we need to convert them to 16 bist per channel
                     rgb = [channel << 8 for channel in eval(match.group(2))]
                     series.add_paint(ArtPaint(match.group(1), rgb, eval(match.group(3)), eval(match.group(4))))
-            elif MODEL_NC_MATCHER.match(lines[2]):
-                RGB = ModelPaint.COLOUR.RGB
-                colours = []
-                for line in lines[2:]:
-                    match = MODEL_NC_MATCHER.match(line)
-                    if not match:
-                        raise cls.ParseError(_("Badly formed definition: {0}.").format(line))
-                    name = eval(match.group(1))
-                    rgb = eval(match.group(2))
-                    kwargs = {"metallic": "NM", "fluorescence": "NF"}
-                    for extra in ModelPaint.EXTRAS:
-                        kwargs[extra.name] = extra.default_value
-                    series.add_paint(ModelPaint(name, rgb, transparency=match.group(3), finish=match.group(4), **kwargs))
             elif ART_NC_MATCHER.match(lines[2]):
                 RGB = ArtPaint.COLOUR.RGB
                 colours = []
@@ -190,7 +164,7 @@ class PaintSeries:
                         kwargs[extra.name] = extra.default_value
                     series.add_paint(ArtPaint(name, rgb, transparency=match.group(3), permanence=match.group(4), **kwargs))
             else:
-                RGB = ModelPaint.COLOUR.RGB
+                RGB = ArtPaint.COLOUR.RGB
                 for line in lines[2:]:
                     try:
                         series.add_paint(eval(line))
@@ -201,7 +175,7 @@ class PaintSeries:
 class PaintSeriesEditor(pedit.PaintCollectionEditor):
     PAINT_EDITOR = None
     PAINT_LIST_NOTEBOOK = None
-    PAINT_COLLECTION = PaintSeries
+    PAINT_COLLECTION = None
     RECOLLECT_SECTION = "editor"
     FILE_NAME_PROMPT = _("Paint Series Description File:")
     LABEL = _("Paint Series Editor")
@@ -302,6 +276,7 @@ recollect.define("paint_series_selector", "last_file", recollect.Defn(str, os.pa
 
 class PaintSeriesManager(GObject.GObject, dialogue.ReporterMixin, dialogue.AskerMixin):
     PAINT_SELECTOR = None
+    PAINT_COLLECTION = None
     def __init__(self):
         GObject.GObject.__init__(self)
         self.__target_colour = None
@@ -345,7 +320,7 @@ class PaintSeriesManager(GObject.GObject, dialogue.ReporterMixin, dialogue.Asker
         fobj = open(filepath, "r")
         text = fobj.read()
         fobj.close()
-        series = PaintSeries.fm_definition(text)
+        series = self.PAINT_COLLECTION.fm_definition(text)
         # All OK so we can add this series to our dictionary
         selector = self.PAINT_SELECTOR(series)
         selector.set_target_colour(self.__target_colour)
@@ -362,7 +337,7 @@ class PaintSeriesManager(GObject.GObject, dialogue.ReporterMixin, dialogue.Asker
             except IOError as edata:
                 io_errors.append(edata)
                 continue
-            except PaintSeries.ParseError as edata:
+            except self.PAINT_COLLECTION.ParseError as edata:
                 format_errors.append((edata, filepath))
                 continue
         if io_errors or format_errors:
@@ -411,7 +386,7 @@ class PaintSeriesManager(GObject.GObject, dialogue.ReporterMixin, dialogue.Asker
             series = self._add_series_from_file(filepath)
         except IOError as edata:
             return self.report_io_error(edata)
-        except PaintSeries.ParseError as edata:
+        except self.PAINT_COLLECTION.ParseError as edata:
             return self.alert_user(_("Format Error:  {}: {}").format(edata, filepath))
         if series is None:
             return
@@ -462,34 +437,3 @@ class PaintSeriesManager(GObject.GObject, dialogue.ReporterMixin, dialogue.Asker
         # pass the parcel :-)
         self.emit("add-paint-colours", paint_colours)
 GObject.signal_new("add-paint-colours", PaintSeriesManager, GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_PYOBJECT,))
-
-class ModelPaintSelector(PaintSelector):
-    class SELECT_PAINT_LIST_VIEW (gpaint.ModelPaintListView):
-        UI_DESCR = """
-        <ui>
-            <popup name="paint_list_popup">
-                <menuitem action="add_paint_to_mixer"/>
-                <menuitem action="add_paints_to_mixer"/>
-                <menuitem action="show_paint_details"/>
-            </popup>
-        </ui>
-        """
-        def populate_action_groups(self):
-            """
-            Populate action groups ready for UI initialization.
-            """
-            self.action_groups[actions.AC_SELN_MADE].add_actions(
-                [
-                    ("add_paints_to_mixer", Gtk.STOCK_ADD, _("Add Selection"), None,
-                     _("Add the selected paints to the mixer."),),
-                ]
-            )
-            self.action_groups[actions.AC_SELN_NONE|self.AC_CLICKED_ON_ROW].add_actions(
-                [
-                    ("add_paint_to_mixer", Gtk.STOCK_ADD, None, None,
-                     _("Add the clicked paint to the mixer."),),
-                ]
-            )
-
-class ModelPaintSeriesManager(PaintSeriesManager):
-    PAINT_SELECTOR = ModelPaintSelector

@@ -420,9 +420,6 @@ class PaintEditor(Gtk.VBox):
 
 GObject.signal_new("changed", PaintEditor, GObject.SignalFlags.RUN_LAST, None, (GObject.TYPE_PYOBJECT,))
 
-class ModelPaintEditor(PaintEditor):
-    PAINT = vpaint.ModelPaint
-
 class PaintCollectionEditor(Gtk.HPaned, actions.CAGandUIManager, dialogue.ReporterMixin, dialogue.AskerMixin):
     PAINT_EDITOR = None
     PAINT_LIST_NOTEBOOK = None

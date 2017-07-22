@@ -17,6 +17,9 @@
 """Manage various paint colour standards
 """
 
+__all__ = []
+__author__ = "Peter Williams <pwil3058@gmail.com>"
+
 import collections
 import hashlib
 import os
@@ -35,8 +38,6 @@ from ..gtx import tlview
 from . import gpaint
 from . import pedit
 from . import vpaint
-
-from .vpaint import ModelPaint
 
 from .. import CONFIG_DIR_PATH, SYS_BASE_DIR_PATH
 
@@ -78,6 +79,7 @@ class PaintStandard:
     # No i18n for these strings
     OWNER_LABEL = "Sponsor"
     NAME_LABEL = "Standard"
+    PAINT = None
     class ParseError(Exception):
         pass
     def __init__(self, sponsor, name, paints=None):
@@ -119,7 +121,6 @@ class PaintStandard:
         return None if paint is None else StandardPaint(self, paint)
     @classmethod
     def fm_definition(cls, definition_text):
-        from .rgbh import RGB8, RGB16, RGBPN
         lines = definition_text.splitlines()
         if len(lines) < 2:
             raise cls.ParseError(_("Too few lines: {0}.".format(len(lines))))
@@ -131,14 +132,7 @@ class PaintStandard:
         if not match:
             raise cls.ParseError(_("Standard name not found."))
         standard_name = match.group(1)
-        standard = cls(sponsor=sponsor_name, name=standard_name)
-        RGB = ModelPaint.COLOUR.RGB
-        for line in lines[2:]:
-            try:
-                standard.add_paint(eval(line))
-            except TypeError as edata:
-                raise cls.ParseError(_("Badly formed definition: {0}. ({1})").format(line, str(edata)))
-        return standard
+        return cls(sponsor=sponsor_name, name=standard_name, paints=cls.paints_fm_definition(lines[2:]))
 
 def generate_paint_list_spec(view, model):
     """Generate the specification for a paint colour list
@@ -156,7 +150,7 @@ class StandardPaintColourInformationDialogue(gpaint.PaintColourInformationDialog
     RECOLLECT_SECTION = "standard_paint_colour_information"
 
 class SelectStandardPaintListView(gpaint.PaintListView):
-    MODEL = gpaint.ModelPaintListStore
+    MODEL = None
     PAINT_INFO_DIALOGUE = StandardPaintColourInformationDialogue
     SPECIFICATION = generate_paint_list_spec
     UI_DESCR = """
@@ -172,10 +166,11 @@ class SelectStandardPaintListView(gpaint.PaintListView):
         """Populate action groups ready for UI initialization.
         """
         self.get_selection().set_mode(Gtk.SelectionMode.NONE)
+        gpaint.PaintListView.populate_action_groups(self)
         self.action_groups[self.AC_CLICKED_ON_ROW|self.AC_TARGET_SETTABLE].add_actions(
             [
                 ("set_target_in_mixer", Gtk.STOCK_APPLY, _("Set As Target"), None,
-                 _("Set the target colour in the mixer to selected standard paint's colour."),
+                 _("Set the target colour in the mixer to clicked standard paint's colour."),
                 ),
             ],
         )
@@ -237,6 +232,7 @@ GObject.signal_new("set_target_colour", StandardPaintSelector, GObject.SignalFla
 
 class PaintStandardsManager(GObject.GObject, dialogue.ReporterMixin, dialogue.AskerMixin):
     STANDARD_PAINT_SELECTOR = StandardPaintSelector
+    PAINT_STANDARD_COLLECTION = None
     def __init__(self):
         GObject.GObject.__init__(self)
         self.__standards_dict = dict()
@@ -274,7 +270,7 @@ class PaintStandardsManager(GObject.GObject, dialogue.ReporterMixin, dialogue.As
         fobj = open(filepath, "r")
         text = fobj.read()
         fobj.close()
-        standard = PaintStandard.fm_definition(text)
+        standard = self.PAINT_STANDARD_COLLECTION.fm_definition(text)
         # All OK so we can add this standard to our dictionary
         selector = self.STANDARD_PAINT_SELECTOR(standard)
         selector.connect("set_target_colour", self._set_target_in_mixer_cb)
@@ -416,7 +412,7 @@ GObject.signal_new("set_target_colour", PaintStandardsManager, GObject.SignalFla
 class PaintStandardEditor(pedit.PaintCollectionEditor):
     PAINT_EDITOR = None
     PAINT_LIST_NOTEBOOK = None
-    PAINT_COLLECTION = PaintStandard
+    PAINT_COLLECTION = None
     RECOLLECT_SECTION = "stds_editor"
     FILE_NAME_PROMPT = _("Paint Standard Description File:")
     LABEL = _("Paint Standards Editor")

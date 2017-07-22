@@ -197,12 +197,6 @@ class Paint:
         return fmt_str.format(ename, ergb, kwargs_str)
 
 
-class ModelPaint(Paint):
-    COLOUR = HCV
-    class CHARACTERISTICS(pchar.Characteristics):
-        NAMES = ("transparency", "finish", "metallic", "fluorescence")
-    EXTRAS = [EXTRA("notes", _("Notes:"), "")]
-
 class ArtPaint(Paint):
     COLOUR = HCVW
     class CHARACTERISTICS(pchar.Characteristics):
@@ -222,9 +216,6 @@ class TargetColour:
             return getattr(self.colour, attr_name)
         except AttributeError:
             raise AttributeError(_("{}: unknown attribute for {}").format(attr_name, self.__class__.__name__))
-
-class ModelTargetColour(TargetColour):
-    COLOUR = HCV
 
 class ArtTargetColour(TargetColour):
     COLOUR = HCVW
