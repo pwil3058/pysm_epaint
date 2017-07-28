@@ -37,8 +37,6 @@ from ..gtx import recollect
 from . import gpaint
 from . import pedit
 
-from .vpaint import ArtPaint
-
 from .. import SYS_DATA_DIR_PATH
 from .. import CONFIG_DIR_PATH
 
@@ -79,8 +77,6 @@ class SeriesPaint(collections.namedtuple("SeriesPaint", ["series", "paint"])):
     def __repr__(self):
         return "SeriesPaint(series={}, paint={})".format(self.series.series_id, repr(self.paint))
 
-ART_NC_MATCHER = re.compile(r'^NamedColour\(name=(".+"), rgb=(.+), transparency="(.+)", permanence="(.+)"\)$')
-
 class PaintSeries:
     # No i18n for these strings
     OWNER_LABEL = "Manufacturer"
@@ -120,7 +116,6 @@ class PaintSeries:
         return None if paint is None else SeriesPaint(self, paint)
     @classmethod
     def fm_definition(cls, definition_text):
-        from .rgbh import RGB8, RGB16, RGBPN
         lines = definition_text.splitlines()
         if len(lines) < 2:
             raise cls.ParseError(_("Too few lines: {0}.".format(len(lines))))
@@ -133,44 +128,6 @@ class PaintSeries:
             raise cls.ParseError(_("Series name not found."))
         series_name = match.group(1)
         return cls(maker=mfkr_name, name=series_name, paints=cls.paints_fm_definition(lines[2:]))
-    @staticmethod
-    def paints_fm_definition(lines):
-        if len(lines) > 2:
-            old_art_matcher = re.compile('(^[^:]+):\s+(RGB\([^)]+\)), (Transparency\([^)]+\)), (Permanence\([^)]+\))$')
-            if old_art_matcher.match(lines[2]):
-                # Old format
-                # TODO: remove support for old paint series format
-                RGB = collections.namedtuple("RGB", ["red", "green", "blue"])
-                colours = []
-                for line in lines[2:]:
-                    match = old_art_matcher.match(line)
-                    if not match:
-                        raise cls.ParseError(_("Badly formed definition: {0}.").format(line))
-                    # Old data files were wx and hence 8 bits per channel
-                    # so we need to convert them to 16 bist per channel
-                    rgb = [channel << 8 for channel in eval(match.group(2))]
-                    series.add_paint(ArtPaint(match.group(1), rgb, eval(match.group(3)), eval(match.group(4))))
-            elif ART_NC_MATCHER.match(lines[2]):
-                RGB = ArtPaint.COLOUR.RGB
-                colours = []
-                for line in lines[2:]:
-                    match = ART_NC_MATCHER.match(line)
-                    if not match:
-                        raise cls.ParseError(_("Badly formed definition: {0}.").format(line))
-                    name = eval(match.group(1))
-                    rgb = eval(match.group(2))
-                    kwargs = {}
-                    for extra in ArtPaint.EXTRAS:
-                        kwargs[extra.name] = extra.default_value
-                    series.add_paint(ArtPaint(name, rgb, transparency=match.group(3), permanence=match.group(4), **kwargs))
-            else:
-                RGB = ArtPaint.COLOUR.RGB
-                for line in lines[2:]:
-                    try:
-                        series.add_paint(eval(line))
-                    except TypeError as edata:
-                        raise cls.ParseError(_("Badly formed definition: {0}. ({1})").format(line, str(edata)))
-        return series
 
 class PaintSeriesEditor(pedit.PaintCollectionEditor):
     PAINT_EDITOR = None

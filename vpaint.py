@@ -197,11 +197,6 @@ class Paint:
         return fmt_str.format(ename, ergb, kwargs_str)
 
 
-class ArtPaint(Paint):
-    COLOUR = HCVW
-    class CHARACTERISTICS(pchar.Characteristics):
-        NAMES = ("transparency", "permanence")
-
 class TargetColour:
     COLOUR = None
     def __init__(self, name, rgb, description):
@@ -216,6 +211,3 @@ class TargetColour:
             return getattr(self.colour, attr_name)
         except AttributeError:
             raise AttributeError(_("{}: unknown attribute for {}").format(attr_name, self.__class__.__name__))
-
-class ArtTargetColour(TargetColour):
-    COLOUR = HCVW

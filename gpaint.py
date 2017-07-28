@@ -1101,17 +1101,6 @@ def paint_extras_tns_list(paint, index=0):
     return [TNS(extra.prompt_text[:-1], extra.name, {"resizable" : True, "expand" : True}, lambda row: getattr(row[index], extra.name)) for extra in paint.EXTRAS]
 
 
-class ArtPaintListStore(PaintListStore):
-    COLUMN_DEFS = [
-        TNS(_("Colour Name"), "name", {"resizable" : True, "expand" : True}, lambda row: row[0].name),
-        TNS(_("Value"), "value", {}, lambda row: row[0].value),
-        TNS(_("Hue"), "hue", {}, lambda row: row[0].hue),
-        TNS(_("Warmth"), "warmth", {}, lambda row: row[0].warmth),
-    ] + paint_characteristics_tns_list(vpaint.ArtPaint)
-
-class ArtPaintListView(PaintListView):
-    MODEL = ArtPaintListStore
-
 class PaintListNotebook(HueWheelNotebook):
     PAINT_LIST_VIEW = PaintListView
     def __init__(self, wheel_popup="/colour_wheel_I_popup"):
