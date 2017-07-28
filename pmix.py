@@ -394,7 +394,7 @@ def generate_components_list_spec(view, model):
     attr_cols_specs = gpaint.paint_list_column_specs(model)
     return tlview.ViewSpec(
         properties={},
-        selection_mode=Gtk.SelectionMode.SINGLE,
+        selection_mode=Gtk.SelectionMode.NONE,
         columns=[parts_col_spec, name_col_spec] + attr_cols_specs
     )
 
@@ -523,7 +523,7 @@ class MatchedPaintListView(gpaint.PaintListView):
             return (self._clicked_row[0], self._clicked_row[1])
     def _show_paint_details_cb(self, _action):
         paint, target_colour = self.get_clicked_paint_and_target()
-        self.MIXED_PAINT_INFORMATION_DIALOGUE(paint, target_colour).show()
+        self.MIXED_PAINT_INFORMATION_DIALOGUE(paint, target_colour, parent=self).show()
 
 recollect.define('reference_image_viewer', 'last_file', recollect.Defn(str, ''))
 recollect.define('reference_image_viewer', 'last_size', recollect.Defn(str, ''))
@@ -848,11 +848,11 @@ class PaintMixer(Gtk.VBox, actions.CAGandUIManager, dialogue.AskerMixin, dialogu
     def _show_wheel_colour_details_cb(self, _action, wheel):
         colour = wheel.popup_colour
         if hasattr(colour, "blobs"):
-            self.MIXED_PAINT_INFORMATION_DIALOGUE(colour, self.mixed_colours.get_target_colour(colour)).show()
+            self.MIXED_PAINT_INFORMATION_DIALOGUE(colour, self.mixed_colours.get_target_colour(colour), parent=self).show()
         elif isinstance(colour, vpaint.TargetColour):
-            TargetColourInformationDialogue(colour).show()
+            TargetColourInformationDialogue(colour, parent=self).show()
         else:
-            self.PAINT_INFO_DIALOGUE(colour).show()
+            self.PAINT_INFO_DIALOGUE(colour, parent=self).show()
         return True
     def __str__(self):
         paint_colours = self.paint_colours.get_colours()

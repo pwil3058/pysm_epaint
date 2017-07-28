@@ -646,7 +646,7 @@ class ColourWheel(Gtk.DrawingArea, actions.CAGandUIManager):
         self.__ac_acbid = None
         self.__ec_acbid = None
     def _show_colour_details_acb(self, _action):
-        self.PAINT_INFO_DIALOGUE(self.__popup_colour).show()
+        self.PAINT_INFO_DIALOGUE(self.__popup_colour, parent=self).show()
     def do_popup_preliminaries(self, event):
         colour, rng = self.get_colour_nearest_to_xy(event.x, event.y)
         if colour is not None and rng <= self.scaled_size * 1.5:
@@ -1073,7 +1073,7 @@ class PaintListView(tlview.View, actions.CAGandUIManager, dialogue.AskerMixin):
         if self.ask_ok_cancel(msg):
             self.model.remove_paints(paints)
     def _show_paint_details_cb(self, _action):
-        self.PAINT_INFO_DIALOGUE(self.get_clicked_paint()).show()
+        self.PAINT_INFO_DIALOGUE(self.get_clicked_paint(), parent=self).show()
     def get_selected_paints(self):
         """Return the currently selected paints as a list.
         """
