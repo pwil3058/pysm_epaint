@@ -335,7 +335,7 @@ class HueDisplay(GenericAttrDisplay):
         else:
             start_hue_angle = centre_hue.angle + spread / 2
             delta_hue_angle = -spread / width
-        linear_gradient = cairo.LinearGradient(0, 0, width, height)
+        linear_gradient = cairo.LinearGradient(0, 0.5 * height, width, 0.5 * height)
         for i in range(width):
             hue = rgbh.HuePN(start_hue_angle + delta_hue_angle * i)
             linear_gradient.add_color_stop_rgb(float(i) / width, *hue.rgb)
