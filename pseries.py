@@ -119,14 +119,23 @@ class PaintSeries:
         lines = definition_text.splitlines()
         if len(lines) < 2:
             raise cls.ParseError(_("Too few lines: {0}.".format(len(lines))))
-        match = re.match("^Manufacturer:\s+(\S.*)\s*$", lines[0])
-        if not match:
-            raise cls.ParseError(_("Manufacturer not found."))
-        mfkr_name = match.group(1)
-        match = re.match("^Series:\s+(\S.*)\s*$", lines[1])
-        if not match:
+        mfkr_name = None
+        series_name = None
+        for line in lines[:2]:
+            match = re.match("^Manufacturer:\s+(\S.*)\s*$", line)
+            if match:
+                mfkr_name = match.group(1)
+            else:
+                match = re.match("^Series:\s+(\S.*)\s*$", line)
+                if match:
+                    series_name = match.group(1)
+        if not mfkr_name:
+            if not series_name:
+                raise cls.ParseError(_("Neither manufacturer nor series name found."))
+            else:
+                raise cls.ParseError(_("Manufacturer not found."))
+        elif not series_name:
             raise cls.ParseError(_("Series name not found."))
-        series_name = match.group(1)
         return cls(maker=mfkr_name, name=series_name, paints=cls.paints_fm_definition(lines[2:]))
 
 class PaintSeriesEditor(pedit.PaintCollectionEditor):

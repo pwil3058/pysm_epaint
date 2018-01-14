@@ -124,14 +124,23 @@ class PaintStandard:
         lines = definition_text.splitlines()
         if len(lines) < 2:
             raise cls.ParseError(_("Too few lines: {0}.".format(len(lines))))
-        match = re.match("^Sponsor:\s+(\S.*)\s*$", lines[0])
-        if not match:
-            raise cls.ParseError(_("Sponsor not found."))
-        sponsor_name = match.group(1)
-        match = re.match("^Standard:\s+(\S.*)\s*$", lines[1])
-        if not match:
+        sponsor_name = None
+        standard_name = None
+        for line in lines[:2]:
+            match = re.match("^Sponsor:\s+(\S.*)\s*$", line)
+            if match:
+                sponsor_name = match.group(1)
+            else:
+                match = re.match("^Standard:\s+(\S.*)\s*$", line)
+                if match:
+                    standard_name = match.group(1)
+        if not sponsor_name:
+            if not standard_name:
+                raise cls.ParseError(_("Neither sponsor nor standard name found."))
+            else:
+                raise cls.ParseError(_("Sponsor not found."))
+        elif not standard_name:
             raise cls.ParseError(_("Standard name not found."))
-        standard_name = match.group(1)
         return cls(sponsor=sponsor_name, name=standard_name, paints=cls.paints_fm_definition(lines[2:]))
 
 def generate_paint_list_spec(view, model):
