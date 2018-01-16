@@ -101,7 +101,7 @@ class PaintSeries:
         string = "{0}: {1}\n".format(self.OWNER_LABEL, self.series_id.maker)
         string += "{0}: {1}\n".format(self.NAME_LABEL, self.series_id.name)
         for paint in sorted(self.__paints.values(), key=lambda x: x.name):
-            string += "{0}\n".format(repr(paint))
+            string += "{0}\n".format(paint.paint_spec())
         return string
     def iter_names(self):
         return self.__paints.keys()

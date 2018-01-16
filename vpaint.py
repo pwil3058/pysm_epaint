@@ -184,8 +184,8 @@ class Paint:
             return True
         else:
             return self.characteristics != other.characteristics
-    def __repr__(self):
-        fmt_str = self.__class__.__name__ + "(name=\"{0}\", rgb={1}{2})"
+    def _format_data(self):
+        fmt_str = "(name=\"{0}\", rgb={1}{2})"
         ename = re.sub('"', r'\"', self.__name)
         ergb = repr(self.colour.rgb)
         kwargs_str = ""
@@ -195,6 +195,10 @@ class Paint:
         for e_name, e_value in self.__extras.items():
             kwargs_str += ", {0}=\"{1}\"".format(e_name, re.sub('"', r'\"', e_value))
         return fmt_str.format(ename, ergb, kwargs_str)
+    def paint_spec(self):
+        return "PaintSpec" + self._format_data()
+    def __repr__(self):
+        return self.__class__.__name__ + self._format_data()
 
 
 class TargetColour:
